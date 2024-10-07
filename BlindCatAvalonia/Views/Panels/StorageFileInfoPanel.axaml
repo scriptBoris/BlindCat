@@ -1,0 +1,148 @@
+<Grid xmlns="https://github.com/avaloniaui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:controls="clr-namespace:BlindCatCore.Core;assembly=BlindCatCore"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:enums="using:BlindCatCore.Enums"
+      xmlns:vm="using:BlindCatCore.ViewModels.Panels"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:models="clr-namespace:BlindCatCore.Models;assembly=BlindCatCore"
+      xmlns:sd="clr-namespace:BlindCatAvalonia.SDcontrols"
+      x:Class="BlindCatAvalonia.Views.Panels.StorageFileInfoPanel"
+      x:DataType="vm:StorageFileInfoPanelVm"
+      x:Name="root"
+      d:DesignHeight="550"
+      d:DesignWidth="300"
+      Background="#202020"
+      mc:Ignorable="d">
+
+    <Grid.Styles>
+        <Style Selector="TextBlock.label">
+            <Setter Property="Foreground" Value="#FFF"/>
+            <Setter Property="Opacity" Value="0.7"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,1"/>
+        </Style>
+    </Grid.Styles>
+
+    <sd:StackLayout Padding="10"
+                    Spacing="10">
+
+        <!--file name-->
+        <StackPanel VerticalAlignment="Top">
+            <TextBlock Classes="label">
+                Name
+            </TextBlock>
+            <TextBox VerticalAlignment="Top"
+                     IsReadOnly="True"
+                     Text="{Binding File.Name}"
+                     Watermark="none"/>
+        </StackPanel>
+
+        <!--author-->
+        <StackPanel VerticalAlignment="Top">
+            <TextBlock Classes="label">
+                Author
+            </TextBlock>
+            <TextBox VerticalAlignment="Top"
+                     IsReadOnly="True"
+                     Text="{Binding File.Artist}"
+                     Watermark="none"/>
+        </StackPanel>
+
+        <!--description-->
+        <StackPanel VerticalAlignment="Top">
+            <TextBlock Classes="label">
+                Description
+            </TextBlock>
+            <TextBox IsReadOnly="True"
+                     Text="{Binding File.Description}"
+                     TextWrapping="WrapWithOverflow"
+                     Watermark="none"/>
+        </StackPanel>
+
+        <!--tags-->
+        <StackPanel VerticalAlignment="Top">
+            <TextBlock Classes="label">
+                Tags
+            </TextBlock>
+            <ItemsControl IsVisible="{Binding File.Tags.Length, Converter={StaticResource IsNotEmpty}}"
+                          ItemsSource="{Binding File.Tags}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Margin="0,3,3,0"
+                                Padding="7,3"
+                                Background="Gray"
+                                CornerRadius="3">
+                            <TextBlock Foreground="#111"
+                                       Text="{Binding .}"/>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Border Padding="10,2"
+                    HorizontalAlignment="Left"
+                    BorderBrush="#777"
+                    BorderThickness="1"
+                    CornerRadius="3"
+                    IsVisible="{Binding File.Tags.Length, Converter={StaticResource IsEmpty}}">
+                <TextBlock Foreground="White"
+                           Opacity="0.5">
+                    No tags
+                </TextBlock>
+            </Border>
+        </StackPanel>
+
+        <StackPanel VerticalAlignment="Top">
+            <TextBlock Classes="label">
+                Encryption method
+            </TextBlock>
+            <TextBox IsReadOnly="True"
+                     Text="{Binding File.EncryptionMethod}"/>
+            <sd:StackLayout Padding="0,5"
+                            HorizontalAlignment="Right"
+                            Orientation="Horizontal"
+                            Spacing="5">
+
+                <!--Decrypt-->
+                <Button HorizontalAlignment="Right"
+                        Command="{Binding CommandDecryptButton}"
+                        IsVisible="{Binding ShowDecryptButton}"
+                        Theme="{StaticResource Button}">
+                    Decrypt
+                </Button>
+
+                <!--CENC-->
+                <Button HorizontalAlignment="Right"
+                        Command="{Binding CommandCENCButton}"
+                        IsVisible="{Binding ShowCENCButton}"
+                        Theme="{StaticResource Button}">
+                    To CENC
+                </Button>
+
+                <!--dotnet-->
+                <Button HorizontalAlignment="Right"
+                        Command="{Binding CommandDotnetButton}"
+                        IsVisible="{Binding ShowDotnetButton}"
+                        Theme="{StaticResource Button}">
+                    To dotnet
+                </Button>
+            </sd:StackLayout>
+        </StackPanel>
+
+        <!--save-->
+        <!--<Button Margin="0,20,0,0"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                Command="{Binding CommandEditMeta}"
+                Theme="{StaticResource ButtonAccent}">
+            Edit meta
+        </Button>-->
+    </sd:StackLayout>
+</Grid>

@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:panels="using:BlindCatAvalonia.Panels"
+             xmlns:sd="using:BlindCatAvalonia.SDcontrols"
+             x:Class="BlindCatAvalonia.Panels.SearchPanel"
+             x:DataType="panels:SearchPanel"
+             d:DesignHeight="45"
+             d:DesignWidth="500"
+             Background="#202020"
+             mc:Ignorable="d">
+    <sd:StackLayout Orientation="Horizontal"
+                    Spacing="5">
+
+        <TextBox x:Name="entrySearchBox"
+                 VerticalAlignment="Center"
+                 Watermark="Search value"/>
+
+        <Button VerticalAlignment="Center"
+                Theme="{StaticResource Button}">
+            Clear
+        </Button>
+
+        <Button VerticalAlignment="Center"
+                Theme="{StaticResource Button}">
+            Filter
+        </Button>
+
+        <sd:DropdownButton x:Name="sortingDropdown"
+                           HorizontalAlignment="Left"
+                           Placeholder="Sorting"/>
+    </sd:StackLayout>
+</UserControl>

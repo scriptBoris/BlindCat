@@ -1,0 +1,71 @@
+<Grid xmlns="https://github.com/avaloniaui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:sd="using:BlindCatAvalonia.SDcontrols"
+      xmlns:vm="using:BlindCatCore.ViewModels"
+      x:Class="BlindCatAvalonia.Views.StorageCreateView"
+      x:DataType="vm:StorageCreateVm"
+      d:DesignHeight="500"
+      d:DesignWidth="400"
+      sd:Scaffolt.Title="Create new storage"
+      Background="#202020"
+      mc:Ignorable="d">
+
+
+    <Grid.Styles>
+        <Style Selector="TextBlock.label">
+            <Setter Property="Foreground" Value="#FFF"/>
+            <Setter Property="Opacity" Value="0.7"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,1"/>
+        </Style>
+    </Grid.Styles>
+
+    <sd:StackLayout Margin="10"
+                    Spacing="10">
+
+        <!--name-->
+        <StackPanel VerticalAlignment="Top">
+            <TextBlock Classes="label">Name</TextBlock>
+            <TextBox VerticalAlignment="Top"
+                     Text="{Binding Name.RawValue}"
+                     Watermark="Required"/>
+        </StackPanel>
+
+        <!--dir path-->
+        <StackPanel VerticalAlignment="Top">
+            <TextBlock Classes="label">Storage directory path</TextBlock>
+            <sd:StackLayout Orientation="Horizontal"
+                            Spacing="5">
+                <TextBox x:Name="entryPath"
+                         VerticalAlignment="Top"
+                         Text="{Binding Path.RawValue}"
+                         Watermark="Path"/>
+                <Button Click="Button_Click"
+                        Theme="{StaticResource Button}">
+                    Select dir
+                </Button>
+            </sd:StackLayout>
+        </StackPanel>
+
+        <!--password-->
+        <StackPanel VerticalAlignment="Top">
+            <TextBlock Classes="label">Password</TextBlock>
+            <TextBox PasswordChar="*"
+                     Text="{Binding Password.RawValue}"
+                     Watermark="For encryption"/>
+        </StackPanel>
+
+        <Button HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Command="{Binding CommandCreate}"
+                Theme="{StaticResource ButtonAccent}">
+            <TextBlock Margin="7,0">
+                Create
+            </TextBlock>
+        </Button>
+
+    </sd:StackLayout>
+</Grid>

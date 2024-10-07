@@ -1,0 +1,90 @@
+<Grid xmlns="https://github.com/avaloniaui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:local="using:BlindCatAvalonia.SDcontrols.Scaffold.Utils"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:sd="using:BlindCatAvalonia.SDcontrols"
+      x:Class="BlindCatAvalonia.SDcontrols.Scaffold.Utils.NavBar"
+      x:Name="root"
+      d:DesignWidth="700"
+      Background="#202020"
+      ColumnDefinitions="Auto, *, Auto, 150"
+      mc:Ignorable="d">
+
+    <!--back button-->
+    <Button x:Name="backButton"
+            Margin="5,0,0,0"
+            Padding="5"
+            VerticalAlignment="Center"
+            VerticalContentAlignment="Center"
+            Background="Transparent"
+            BorderThickness="0"
+            CornerRadius="5">
+        <Canvas Width="24"
+                Height="24">
+            <Path Data="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"
+                  Fill="#AAA"/>
+        </Canvas>
+    </Button>
+
+    <!--title text-->
+    <sd:StackLayout Grid.Column="1"
+                    Margin="10,0,0,0"
+                    VerticalAlignment="Center"
+                    Spacing="0">
+        <TextBlock x:Name="titleLabel"
+                   HorizontalAlignment="Stretch"
+                   VerticalAlignment="Center"
+                   Foreground="#DDD">
+            <TextBlock.Effect>
+                <DropShadowEffect BlurRadius="3"
+                                  OffsetX="0"
+                                  OffsetY="0"
+                                  Color="Black"/>
+            </TextBlock.Effect>
+        </TextBlock>
+
+        <TextBlock x:Name="subtitleLabel"
+                   FontSize="12"
+                   Foreground="#BBB">
+            <TextBlock.Effect>
+                <DropShadowEffect BlurRadius="2"
+								  Opacity="1"
+                                  OffsetX="0"
+                                  OffsetY="0"
+                                  Color="Black"/>
+            </TextBlock.Effect>
+            Subtitle
+        </TextBlock>
+    </sd:StackLayout>
+
+    <!--menu items-->
+    <ItemsControl x:Name="menuItems"
+                  Grid.Column="2">
+
+        <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal"
+                            Spacing="3"/>
+            </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+
+        <ItemsControl.ItemTemplate>
+            <local:MenuItemTemplateSelector>
+                <local:MenuItemTemplateSelector.DefaultTemplate>
+                    <DataTemplate DataType="sd:MenuItem">
+                        <Button Margin="0,0,5,0"
+                                Command="{Binding #root.CommandMenuItem}"
+                                CommandParameter="{Binding .}"
+                                IsVisible="{Binding CustomView, Converter={StaticResource IsNull}}"
+                                Theme="{StaticResource Button}">
+                            <TextBlock VerticalAlignment="Center"
+                                       Foreground="#DDD"
+                                       Text="{Binding Text}"/>
+                        </Button>
+                    </DataTemplate>
+                </local:MenuItemTemplateSelector.DefaultTemplate>
+            </local:MenuItemTemplateSelector>
+        </ItemsControl.ItemTemplate>
+    </ItemsControl>
+</Grid>

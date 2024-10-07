@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:sd="clr-namespace:BlindCatMaui.SDControls"
+             x:Class="BlindCatMaui.SDControls.LoadingDescription"
+             BackgroundColor="#80000000">
+    <ContentView.GestureRecognizers>
+        <TapGestureRecognizer/>
+    </ContentView.GestureRecognizers>
+
+    <Border HorizontalOptions="Center"
+            VerticalOptions="Center"
+            Padding="0"
+            BackgroundColor="#222"
+            Stroke="Transparent"
+            StrokeShape="RoundRectangle 5"
+            StrokeThickness="0">
+        <StackLayout Spacing="0">
+            <StackLayout Padding="20"
+                         Orientation="Vertical"
+                         Spacing="25">
+
+                <StackLayout.Triggers>
+                    <DataTrigger Binding="{Binding IsVisible, Source={Reference bodyScroller}}"
+                                 TargetType="StackLayout"
+                                 Value="True">
+                        <Setter Property="Orientation" Value="Horizontal"/>
+                        <Setter Property="Padding" Value="10"/>
+                    </DataTrigger>
+                </StackLayout.Triggers>
+
+                <Label x:Name="labelDesc"
+                       HorizontalOptions="FillAndExpand"
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center"
+                       MinimumWidthRequest="150"
+                       Text="Hello"/>
+                <ActivityIndicator HeightRequest="44"
+                                   WidthRequest="44"
+                                   HorizontalOptions="Center"
+                                   IsRunning="True"/>
+            </StackLayout>
+
+            <ScrollView x:Name="bodyScroller"
+                        HeightRequest="140"
+                        WidthRequest="300"
+                        BackgroundColor="#111"
+                        IsVisible="True">
+                <Label x:Name="bodyLabel"
+                       Margin="10,0"
+                       Opacity="0.8"
+                       Text="Simple scroll text"/>
+            </ScrollView>
+
+            <sd:Button x:Name="buttonCancel"
+                       BackgroundColor="#444"
+                       CornerRadius="0">
+                <Label HorizontalTextAlignment="Center"
+                       Text="Cancel"/>
+            </sd:Button>
+        </StackLayout>
+    </Border>
+
+</ContentView>

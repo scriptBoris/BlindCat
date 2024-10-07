@@ -1,0 +1,90 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:actipro="http://schemas.actiprosoftware.com/avaloniaui"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:enums="using:BlindCatCore.Enums"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:models="using:BlindCatCore.Models"
+             xmlns:sd="using:BlindCatAvalonia.SDcontrols"
+             xmlns:vm="clr-namespace:BlindCatCore.ViewModels;assembly=BlindCatCore"
+             x:Class="BlindCatAvalonia.HomeView"
+             x:DataType="vm:HomeVm"
+             Name="root"
+             Padding="10"
+             d:DesignHeight="450"
+             d:DesignWidth="650"
+             sd:Scaffolt.HasNavigationBar="False"
+             Background="#202020"
+             mc:Ignorable="d">
+
+    <StackPanel Spacing="10">
+        <TextBlock FontSize="20"
+                   Foreground="White"
+                   Opacity="0.7">
+            Actions
+        </TextBlock>
+        <ItemsControl ItemsSource="{Binding Items}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:HomeItem">
+                    <Button Margin="0,0,0,5"
+                            HorizontalAlignment="Left"
+                            Command="{Binding #root.((vm:HomeVm)DataContext).CommandSelectItem}"
+                            CommandParameter="{Binding .}"
+                            Theme="{StaticResource Button}">
+                        <TextBlock>
+                            <Run Text="{Binding Name}"/>
+                        </TextBlock>
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!--storages-->
+        <sd:StackLayout Margin="0,0,0,0"
+                        Orientation="Horizontal"
+                        Spacing="5">
+            <TextBlock Margin="0,0,10,0"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Center"
+                       FontSize="20"
+                       Foreground="White"
+                       Opacity="0.7">
+                Storages
+            </TextBlock>
+
+            <Button Command="{Binding CommandAddStorage}"
+                    Theme="{StaticResource ButtonAccent}">
+                Create new
+            </Button>
+            <Button Command="{Binding CommandImportStorage}"
+                    Theme="{StaticResource ButtonAccent}">
+                Import
+            </Button>
+        </sd:StackLayout>
+        <ItemsControl ItemsSource="{Binding Storages}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="models:StorageDir">
+                    <Button MinWidth="200"
+                            Margin="0,5,0,0"
+                            HorizontalAlignment="Left"
+                            HorizontalContentAlignment="Center"
+                            Command="{Binding #root.((vm:HomeVm)DataContext).CommandOpenStorage}"
+                            CommandParameter="{Binding .}"
+                            Theme="{StaticResource Button}">
+                        <TextBlock>
+                            <Run Text="{Binding Name}"/>
+                        </TextBlock>
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <sd:DropdownButton Margin="0,10,0,0"
+                           ItemsSource="{x:Type enums:SortingStorageItems}"
+                           Placeholder="Please select item"/>
+
+        <TextBox Watermark="Placeholder"/>
+
+		<DropDownButton />
+    </StackPanel>
+</UserControl>

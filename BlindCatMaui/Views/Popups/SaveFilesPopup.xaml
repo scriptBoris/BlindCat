@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<StackLayout xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:models="clr-namespace:BlindCatCore.Models;assembly=BlindCatCore"
+             xmlns:panels="clr-namespace:BlindCatMaui.Panels"
+             xmlns:sd="clr-namespace:BlindCatMaui.SDControls"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             xmlns:vm="clr-namespace:BlindCatCore.PopupViewModels;assembly=BlindCatCore"
+             x:Class="BlindCatMaui.Views.Popups.SaveFilesPopup"
+             x:DataType="vm:SaveFilesVm"
+             x:Name="root"
+             Scaffold.Title="{Binding StorageName, StringFormat='To Storage : {0}'}"
+             Spacing="10">
+
+    <StackLayout.Resources>
+        <Style x:Key="labelEntry"
+               TargetType="Label">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Opacity" Value="0.7"/>
+        </Style>
+    </StackLayout.Resources>
+
+    <VerticalStackLayout IsVisible="{Binding IsSingleFile}">
+        <Label Style="{StaticResource labelEntry}"
+               Text="File name"/>
+        <Entry Placeholder="Name"
+               Text="{Binding NameForSingleFile}"/>
+    </VerticalStackLayout>
+
+    <!--artist-->
+    <VerticalStackLayout>
+        <Label Style="{StaticResource labelEntry}"
+               Text="Artist"/>
+        <Entry Placeholder="Artist"
+               Text="{Binding Artist}"/>
+    </VerticalStackLayout>
+
+    <!--description-->
+    <VerticalStackLayout>
+        <Label Style="{StaticResource labelEntry}"
+               Text="Description"/>
+        <Entry Placeholder="Description"
+               Text="{Binding Description}"/>
+    </VerticalStackLayout>
+
+    <VerticalStackLayout IsVisible="False"
+                         Spacing="0">
+        <VerticalStackLayout.Triggers>
+            <MultiTrigger TargetType="VerticalStackLayout">
+                <MultiTrigger.Conditions>
+                    <BindingCondition Binding="{Binding IsMultiFiles}"
+                                      Value="True"/>
+                    <BindingCondition Binding="{Binding AlreadyTags.Length, Converter={StaticResource IsNotEmpty}}"
+                                      Value="True"/>
+                </MultiTrigger.Conditions>
+
+                <Setter Property="IsVisible" Value="True"/>
+            </MultiTrigger>
+        </VerticalStackLayout.Triggers>
+
+        <!--already tags-->
+        <Label Style="{StaticResource labelEntry}"
+               Text="Already Tags"/>
+        <sd:FlexLayout BindableLayout.ItemsSource="{Binding AlreadyTags}"
+                       Spacing="3">
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="models:TagCount">
+                    <sd:Button Margin="0,0,2,2"
+                               Padding="10,5"
+                               BackgroundColor="{StaticResource FluentMain}"
+                               CornerRadius="3"
+                               IsClickable="False"
+                               TapCommand="{Binding BindingContext.TagsController.CommandTagDelete, Source={Reference root}}"
+                               TapCommandParameter="{Binding .}">
+                        <Label Text="{Binding TagName}">
+                            <Label.FormattedText>
+                                <FormattedString>
+                                    <Span Text="{Binding TagName}"
+                                          TextColor="#333"/>
+                                    <Span Text=" "/>
+                                    <Span Text="{Binding Count, StringFormat='({0})'}"
+                                          TextColor="#666"/>
+                                </FormattedString>
+                            </Label.FormattedText>
+                        </Label>
+                    </sd:Button>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </sd:FlexLayout>
+    </VerticalStackLayout>
+
+    <!--Will added Tags-->
+    <VerticalStackLayout IsVisible="{Binding TagsController.SelectedTags.Count, Converter={StaticResource IsNotEmpty}}"
+                         Spacing="0">
+        <Label Style="{StaticResource labelEntry}"
+               Text="Will added Tags"/>
+        <sd:FlexLayout BindableLayout.ItemsSource="{Binding TagsController.SelectedTags}"
+                       Spacing="3">
+            <BindableLayout.ItemTemplate>
+                <DataTemplate>
+                    <sd:Button Margin="0,0,2,2"
+                               Padding="10,5"
+                               BackgroundColor="ForestGreen"
+                               CornerRadius="3"
+                               TapCommand="{Binding BindingContext.TagsController.CommandTagDelete, Source={Reference root}}"
+                               TapCommandParameter="{Binding .}">
+                        <Label Text="{Binding .}"
+                               TextColor="Black"/>
+                    </sd:Button>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </sd:FlexLayout>
+    </VerticalStackLayout>
+
+    <VerticalStackLayout>
+        <Label Style="{StaticResource labelEntry}"
+               Text="May you add new tag"/>
+        <sd:AutoSuggest ItemsSource="{Binding TagsController.FilteredTags}"
+                        Placeholder="Tags"
+                        ReturnCommand="{Binding TagsController.CommandPressEnter}"
+                        SelectedSuggestion="{Binding TagsController.SelectedItem}"
+                        Text="{Binding TagsController.EntryText}"
+                        TextChangedCommand="{Binding TagsController.CommandTextChanged}"/>
+    </VerticalStackLayout>
+
+    <sd:Button Margin="0,15,0,0"
+               BackgroundColor="{StaticResource FluentMain}"
+               CornerRadius="3"
+               TapCommand="{Binding CommandSave}">
+        <HorizontalStackLayout HorizontalOptions="Center"
+                               Spacing="10">
+            <ActivityIndicator HeightRequest="24"
+                               WidthRequest="24"
+                               IsRunning="{Binding IsLoading}"
+                               IsVisible="{Binding IsLoading}"
+                               Color="#333"/>
+            <Label VerticalTextAlignment="Center"
+                   Text="Save to storage"
+                   TextColor="Black"/>
+
+            <StackLayout HeightRequest="24"
+                         WidthRequest="24"
+                         IsVisible="{Binding IsLoading}"/>
+        </HorizontalStackLayout>
+    </sd:Button>
+</StackLayout>

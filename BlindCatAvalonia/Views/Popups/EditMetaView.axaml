@@ -1,0 +1,102 @@
+<Grid xmlns="https://github.com/avaloniaui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:sd="using:BlindCatAvalonia.SDcontrols"
+      xmlns:vm="using:BlindCatCore.PopupViewModels"
+      x:Class="BlindCatAvalonia.EditMetaView"
+      x:DataType="vm:EditMetaVm"
+      x:Name="root"
+      d:DesignHeight="450"
+      d:DesignWidth="300"
+      Background="#202020"
+      Scaffolt.Title="Edit meta"
+      mc:Ignorable="d">
+
+    <Grid.Styles>
+        <Style Selector="TextBlock.label">
+            <Setter Property="Foreground" Value="#FFF"/>
+            <Setter Property="Opacity" Value="0.7"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,1"/>
+        </Style>
+    </Grid.Styles>
+
+    <sd:StackLayout Padding="10"
+                    Spacing="10">
+
+        <!--file name-->
+        <StackPanel VerticalAlignment="Top">
+            <TextBlock Classes="label">
+                Name
+            </TextBlock>
+            <TextBox VerticalAlignment="Top"
+                     Text="{Binding Name}"
+                     Watermark="none"/>
+        </StackPanel>
+
+        <!--author-->
+        <StackPanel VerticalAlignment="Top">
+            <TextBlock Classes="label">
+                Author
+            </TextBlock>
+            <TextBox VerticalAlignment="Top"
+                     Text="{Binding Artist}"
+                     Watermark="none"/>
+        </StackPanel>
+
+        <!--description-->
+        <StackPanel VerticalAlignment="Top">
+            <TextBlock Classes="label">
+                Description
+            </TextBlock>
+            <TextBox Text="{Binding Description}"
+                     TextWrapping="WrapWithOverflow"
+                     Watermark="none"/>
+        </StackPanel>
+
+        <!--tags-->
+        <StackPanel VerticalAlignment="Top">
+            <TextBlock Classes="label">
+                Tags
+            </TextBlock>
+
+            <ItemsControl Margin="0,3,0,0"
+                          IsVisible="{Binding TagsController.HasSelectedTags}"
+                          ItemsSource="{Binding TagsController.SelectedTags}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Margin="0,0,5,5"
+                                Command="{Binding #root.((vm:EditMetaVm)DataContext).TagsController.CommandTagDelete}"
+                                CommandParameter="{Binding .}"
+                                Content="{Binding .}"
+                                Theme="{StaticResource ButtonAccent}">
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <sd:AutoSuggestion Margin="0,0,0,0"
+                               CommandCompleted="{Binding TagsController.CommandPressEnter}"
+                               ItemsSource="{Binding TagsController.FilteredTags}"
+                               Text="{Binding TagsController.EntryText}"
+                               TextChangedCommand="{Binding TagsController.CommandTextChanged}"
+                               Watermark="New tag"/>
+        </StackPanel>
+
+        <!--save-->
+        <Button HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                Command="{Binding CommandSave}"
+                Theme="{StaticResource ButtonAccent}">
+            Save
+        </Button>
+    </sd:StackLayout>
+</Grid>

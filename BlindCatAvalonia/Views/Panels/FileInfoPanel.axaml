@@ -1,0 +1,189 @@
+<Grid xmlns="https://github.com/avaloniaui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:models="clr-namespace:BlindCatCore.Models;assembly=BlindCatCore"
+      xmlns:sd="clr-namespace:BlindCatAvalonia.SDcontrols"
+      xmlns:vm="using:BlindCatCore.ViewModels.Panels"
+      x:Class="BlindCatAvalonia.Views.Panels.FileInfoPanel"
+      x:DataType="vm:FileInfoPanelVm"
+      d:DesignHeight="550"
+      d:DesignWidth="300"
+      Background="#202020"
+      mc:Ignorable="d">
+
+    <Grid.Styles>
+        <Style Selector="TextBlock.label">
+            <Setter Property="Foreground" Value="#FFF"/>
+            <Setter Property="Opacity" Value="0.7"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,1"/>
+        </Style>
+
+        <Style Selector="TextBlock.labelvalue">
+            <Setter Property="Foreground" Value="#FFF"/>
+            <Setter Property="Opacity" Value="1"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,1"/>
+        </Style>
+    </Grid.Styles>
+
+    <sd:StackLayout Padding="10"
+                    Spacing="10">
+
+        <!--file name-->
+        <StackPanel VerticalAlignment="Top">
+            <TextBlock Classes="label">
+                Name
+            </TextBlock>
+            <TextBox VerticalAlignment="Top"
+                     IsReadOnly="True"
+                     Text="{Binding File.FileName}"
+                     Watermark="none"/>
+        </StackPanel>
+
+        <!--date created-->
+        <Grid VerticalAlignment="Top"
+              ColumnDefinitions="*,10,*"
+              RowDefinitions="Auto, Auto">
+            <TextBlock Classes="label">
+                Date created
+            </TextBlock>
+
+            <TextBlock Grid.Column="2"
+                       Classes="label">
+                Time created
+            </TextBlock>
+
+            <TextBox Grid.Row="1"
+                     VerticalAlignment="Top"
+                     IsReadOnly="True"
+                     Watermark="none"/>
+
+            <TextBox Grid.Row="1"
+                     Grid.Column="2"
+                     VerticalAlignment="Top"
+                     IsReadOnly="True"
+                     Watermark="none"/>
+        </Grid>
+
+        <!--date edited-->
+        <Grid VerticalAlignment="Top"
+              ColumnDefinitions="*,10,*"
+              RowDefinitions="Auto, Auto">
+            <TextBlock Classes="label">
+                Date edited
+            </TextBlock>
+
+            <TextBlock Grid.Column="2"
+                       Classes="label">
+                Time edited
+            </TextBlock>
+
+            <TextBox Grid.Row="1"
+                     VerticalAlignment="Top"
+                     IsReadOnly="True"
+                     Watermark="none"/>
+
+            <TextBox Grid.Row="1"
+                     Grid.Column="2"
+                     VerticalAlignment="Top"
+                     IsReadOnly="True"
+                     Watermark="none"/>
+        </Grid>
+
+        <!--description-->
+        <StackPanel VerticalAlignment="Top">
+            <TextBlock Classes="label">
+                Description
+            </TextBlock>
+            <TextBox IsReadOnly="True"
+                     Text="{Binding File.Description}"
+                     TextWrapping="WrapWithOverflow"
+                     Watermark="none"/>
+        </StackPanel>
+
+        <!--tags-->
+        <StackPanel VerticalAlignment="Top">
+            <TextBlock Classes="label">
+                Temporary tags
+            </TextBlock>
+
+            <ItemsControl IsVisible="{Binding File.TempStorageFile.Tags.Length, Converter={StaticResource IsNotEmpty}}"
+                          ItemsSource="{Binding File.TempStorageFile.Tags}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Margin="0,3,3,0"
+                                Padding="7,3"
+                                Background="Gray"
+                                CornerRadius="3">
+                            <TextBlock Foreground="#111"
+                                       Text="{Binding .}"/>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Border Padding="10,2"
+                    HorizontalAlignment="Left"
+                    BorderBrush="#777"
+                    BorderThickness="1"
+                    CornerRadius="3"
+                    IsVisible="{Binding File.TempStorageFile.Tags.Length, Converter={StaticResource IsEmpty}}">
+                <TextBlock Foreground="White"
+                           Opacity="0.5">
+                    No tags
+                </TextBlock>
+            </Border>
+        </StackPanel>
+
+        <!--source-->
+        <StackPanel VerticalAlignment="Top">
+            <TextBlock Classes="label">
+                Source
+            </TextBlock>
+            <TextBlock Classes="labelvalue">
+                Local computer
+            </TextBlock>
+            <TextBlock Classes="labelvalue">
+                File path
+            </TextBlock>
+        </StackPanel>
+
+        <!--meta-->
+        <ItemsControl ItemsSource="{Binding Meta}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="models:FileMetaData">
+                    <StackPanel Margin="0,0,0,10">
+                        <TextBlock Classes="label"
+                                   Text="{Binding GroupName}"/>
+
+                        <ItemsControl ItemsSource="{Binding MetaItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:FileMetaItem">
+                                    <Grid ColumnDefinitions="110, *">
+                                        <TextBlock Classes="label"
+                                                   Text="{Binding Meta}"/>
+
+                                        <TextBlock Grid.Column="1"
+                                                   Margin="5,0,0,0"
+                                                   Classes="labelvalue"
+                                                   Text="{Binding Value}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                    </StackPanel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </sd:StackLayout>
+</Grid>

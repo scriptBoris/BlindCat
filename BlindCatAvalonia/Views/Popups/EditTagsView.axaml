@@ -1,0 +1,132 @@
+<Grid xmlns="https://github.com/avaloniaui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:models="using:BlindCatCore.Models"
+      xmlns:sd="using:BlindCatAvalonia.SDcontrols"
+      xmlns:vm="using:BlindCatCore.PopupViewModels"
+      x:Class="BlindCatAvalonia.EditTagsView"
+      x:DataType="vm:EditTagsVm"
+      x:Name="root"
+      d:DesignWidth="350"
+      Background="#202020"
+      Scaffolt.Title="Edit tags"
+      mc:Ignorable="d">
+
+    <Grid.Styles>
+        <Style Selector="TextBlock.label">
+            <Setter Property="Foreground" Value="#FFF"/>
+            <Setter Property="Opacity" Value="0.7"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,1"/>
+        </Style>
+    </Grid.Styles>
+
+    <sd:StackLayout Spacing="10">
+        <!--already tags-->
+        <StackPanel VerticalAlignment="Top"
+                    IsVisible="{Binding AlreadyTags.Count, Converter={StaticResource IsNotEmpty}}">
+            <TextBlock Classes="label">Already tags</TextBlock>
+            <ItemsControl ItemsSource="{Binding AlreadyTags}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:TagCount">
+                        <Button Margin="0,0,5,5"
+                                Command="{Binding #root.((vm:EditTagsVm)DataContext).CommandRemoveTag}"
+                                CommandParameter="{Binding .}"
+                                Theme="{StaticResource ButtonAccent}">
+                            <TextBlock VerticalAlignment="Center">
+                                <Run Text="{Binding TagName}"/>
+                                <Run Foreground="#777"
+                                     Text="{Binding Count, StringFormat='[{0}]'}"/>
+                            </TextBlock>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+
+        <!--Tags will added-->
+        <StackPanel VerticalAlignment="Top"
+                    IsVisible="{Binding TagsController.SelectedTags.Count, Converter={StaticResource IsNotEmpty}}">
+            <TextBlock Classes="label">Tags will added</TextBlock>
+            <ItemsControl ItemsSource="{Binding TagsController.SelectedTags}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Margin="0,0,5,5"
+                                Command="{Binding #root.((vm:EditTagsVm)DataContext).CommandRemoveTag}"
+                                CommandParameter="{Binding .}"
+                                Content="{Binding .}"
+                                Theme="{StaticResource ButtonAccent}">
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+
+        <!--suggestions-->
+        <StackPanel VerticalAlignment="Top">
+            <TextBlock Classes="label">May you add new tag</TextBlock>
+
+            <sd:AutoSuggestion x:Name="autoSuggestion"
+                               CommandCompleted="{Binding TagsController.CommandPressEnter}"
+                               ItemsSource="{Binding TagsController.FilteredTags}"
+                               Text="{Binding TagsController.EntryText}"
+                               TextChangedCommand="{Binding TagsController.CommandTextChanged}"
+                               Watermark="Typing new tag"/>
+        </StackPanel>
+
+        <!--removed tags-->
+        <StackPanel VerticalAlignment="Top"
+                    IsVisible="{Binding WillRemovedTags.Count, Converter={StaticResource IsNotEmpty}}">
+            <TextBlock Classes="label">Tags will removed</TextBlock>
+            <ItemsControl ItemsSource="{Binding WillRemovedTags}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:TagCount">
+                        <Button Margin="0,0,5,5"
+                                Background="DarkRed"
+                                Command="{Binding #root.((vm:EditTagsVm)DataContext).CommandRemoveTag}"
+                                CommandParameter="{Binding .}"
+                                Theme="{StaticResource ButtonAccent}">
+                            <TextBlock>
+                                <Run Foreground="#CCC"
+                                     Text="{Binding TagName}"/>
+                                <Run Foreground="#777"
+                                     Text="{Binding Count, StringFormat='[{0}]'}"/>
+                            </TextBlock>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+
+        <!--Save-->
+        <Button Margin="0,20,0,0"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Bottom"
+                HorizontalContentAlignment="Center"
+                Command="{Binding CommandSave}"
+                Theme="{StaticResource ButtonAccent}">
+            Commit
+        </Button>
+    </sd:StackLayout>
+
+</Grid>

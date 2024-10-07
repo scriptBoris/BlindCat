@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:li="using:LoadingIndicators.Avalonia"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:models="using:BlindCatCore.Models"
+             x:Class="BlindCatAvalonia.SDcontrols.LoadingLayout"
+             x:DataType="models:LoadingStrDesc"
+             d:DesignHeight="400"
+             d:DesignWidth="400"
+             Background="#80000000"
+             mc:Ignorable="d">
+
+    <Border x:Name="borderAnimation"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Background="#C0202020"
+            CornerRadius="13">
+        <StackPanel>
+            <li:LoadingIndicator Height="30"
+                                 Foreground="#3cade8"
+                                 IsActive="True"
+                                 Mode="Wave"
+                                 SpeedRatio="1.0"/>
+            <TextBlock MaxWidth="170"
+                       Margin="10,0,10,10"
+                       Foreground="White"
+                       IsVisible="{Binding Description, Converter={StaticResource IsNotEmpty}}"
+                       Text="{Binding Description}"
+                       TextAlignment="Center"
+                       TextWrapping="WrapWithOverflow">
+            </TextBlock>
+        </StackPanel>
+    </Border>
+</UserControl>

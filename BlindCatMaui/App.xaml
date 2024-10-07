@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:converters="clr-namespace:BlindCatMaui.SDControls.Converters"
+             xmlns:local="clr-namespace:BlindCatMaui"
+             x:Class="BlindCatMaui.App">
+    <Application.Resources>
+        <ResourceDictionary>
+            <converters:IsNullConverter x:Key="IsNull"/>
+            <converters:IsNotNullConverter x:Key="IsNotNull"/>
+            <converters:ReverseConverter x:Key="Reverse"/>
+            <converters:IsEmptyConverter x:Key="IsEmpty"/>
+            <converters:IsNotEmptyConverter x:Key="IsNotEmpty"/>
+
+            <Color x:Key="FluentMain">#3cade8</Color>
+            <Color x:Key="FluentMain-1">#1f5aa2</Color>
+            <Color x:Key="FluentMain-2">#123d70</Color>
+            <Color x:Key="FluentMain-3">#0b2f56</Color>
+
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Resources/Styles/Colors.xaml"/>
+                <ResourceDictionary Source="Resources/Styles/Styles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

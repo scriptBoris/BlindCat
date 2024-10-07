@@ -1,0 +1,68 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:sd="using:BlindCatAvalonia.SDcontrols"
+        x:Class="BlindCatAvalonia.Desktop.AlertPromtWindow"
+        Title="AlertPromtWindow"
+        Width="300"
+        Background="#2b2b2b"
+        CanResize="False"
+        ExtendClientAreaToDecorationsHint="True"
+        Icon="avares://BlindCatAvalonia/Assets/avalonia-logo.ico"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        mc:Ignorable="d">
+
+    <Grid RowDefinitions="*,Auto">
+
+        <sd:StackLayout Margin="20"
+                        Spacing="15">
+
+            <TextBlock x:Name="labelTitle"
+                       Margin="0,0,0,0"
+                       FontSize="20"
+                       Foreground="#FFF">
+                Title
+            </TextBlock>
+
+            <TextBlock x:Name="labelBody"
+                       Margin="0,0,0,0"
+                       Foreground="White"
+                       TextWrapping="WrapWithOverflow">
+                Если вы используете FluentTheme, он также может иметь свои собственные стили для шрифтов. Убедитесь, что ваш стиль не конфликтует с предустановленными стилями темы.
+            </TextBlock>
+
+            <TextBox x:Name="entryValue"
+                     Margin="0,0,0,0"
+                     VerticalAlignment="Top">
+                Init value
+            </TextBox>
+        </sd:StackLayout>
+
+        <sd:StackLayout x:Name="stackLayoutButtons"
+                        Grid.Row="1"
+                        Padding="20"
+                        Background="#202020"
+                        Orientation="Horizontal"
+                        Spacing="10">
+            <!--ok-->
+            <Button x:Name="buttonOK"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    Click="Button_ClickOK"
+                    Theme="{StaticResource ButtonAccent}">
+                OK
+            </Button>
+
+            <!--cancel-->
+            <Button x:Name="buttonCancel"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    Click="Button_ClickCancel"
+                    Theme="{StaticResource Button}">
+                Cancel
+            </Button>
+        </sd:StackLayout>
+    </Grid>
+</Window>

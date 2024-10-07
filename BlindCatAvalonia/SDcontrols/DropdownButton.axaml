@@ -1,0 +1,70 @@
+<Grid xmlns="https://github.com/avaloniaui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      x:Class="BlindCatAvalonia.SDcontrols.DropdownButton"
+      x:Name="root"
+      VerticalAlignment="Center"
+      d:DesignHeight="155"
+      d:DesignWidth="155"
+      mc:Ignorable="d">
+    <Button x:Name="button"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            VerticalContentAlignment="Center"
+            Theme="{StaticResource Button}">
+        <Grid ColumnDefinitions="*,30">
+            <TextBlock x:Name="labelPlaceholder"
+                       VerticalAlignment="Center"
+                       Opacity="0.5">
+                Placeholder
+            </TextBlock>
+
+            <TextBlock x:Name="labelSelected"
+                       VerticalAlignment="Center"
+                       IsVisible="False">
+                Selected item
+            </TextBlock>
+        </Grid>
+    </Button>
+
+    <Canvas x:Name="icon"
+            Width="24"
+            Height="24"
+            Margin="0,0,3,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Center"
+            IsHitTestVisible="False">
+        <Path Data="M7,10L12,15L17,10H7Z"
+              Fill="#999"/>
+    </Canvas>
+
+    <Popup x:Name="popup"
+           Width="{Binding Width, ElementName=root}"
+           HorizontalAlignment="Stretch"
+           IsLightDismissEnabled="True"
+           PlacementMode="Bottom"
+           PlacementTarget="{Binding ElementName=button}">
+        <Border HorizontalAlignment="Stretch"
+                Background="#3c3c3c"
+                BorderThickness="0"
+                ClipToBounds="True"
+                CornerRadius="0,0,5,5">
+            <ItemsControl x:Name="list"
+                          HorizontalAlignment="Stretch">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Margin="0,0,0,0"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Left"
+                                Command="{Binding #root.CommandClickItem}"
+                                CommandParameter="{Binding .}"
+                                Theme="{StaticResource DropDownButtonItem}">
+                            <TextBlock Text="{Binding .}"/>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+    </Popup>
+</Grid>

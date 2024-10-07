@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Grid xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+      xmlns:local="clr-namespace:BlindCatMaui.Core"
+      x:Class="BlindCatMaui.Core.WrapperPopup"
+      HorizontalOptions="FillAndExpand"
+      VerticalOptions="FillAndExpand"
+      BackgroundColor="#80000000">
+    <Border HorizontalOptions="Center"
+            VerticalOptions="Center"
+            Padding="0"
+            BackgroundColor="#333"
+            StrokeShape="RoundRectangle 7"
+            StrokeThickness="0">
+        <Border.Shadow>
+            <Shadow Brush="Black"
+                    Radius="20"/>
+        </Border.Shadow>
+
+        <Border.GestureRecognizers>
+            <TapGestureRecognizer/>
+        </Border.GestureRecognizers>
+
+        <local:StackLayoutCustom Spacing="0">
+            <Label x:Name="labelTitle"
+                   Padding="25,25,25,10"
+                   BackgroundColor="#222"
+                   FontAttributes="Bold"
+                   FontSize="22"
+                   Text="Title"/>
+            <StackLayout x:Name="stackLayoutSeparator"
+                         HeightRequest="1"
+                         HorizontalOptions="Fill"
+                         BackgroundColor="Gray"
+                         Opacity="0.2"/>
+            <Grid x:Name="containerGrid"
+                  Padding="20,10,20,20">
+            </Grid>
+        </local:StackLayoutCustom>
+    </Border>
+</Grid>
