@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+	<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+	<NoWarn>1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FFmpeg.AutoGen.Bindings.DynamicallyLoaded\FFmpeg.AutoGen.Bindings.DynamicallyLoaded.csproj" />
+	<None Update="FFmpeg\**\*">
+		<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	</None>
+  </ItemGroup>
+
+</Project>

@@ -55,8 +55,8 @@ public class SKBitmapControlExt : SKBitmapControl
         }
     }
 
-    private FrameData? _oldRawFrame;
-    public FrameData RawFrame
+    private IFrameData? _oldRawFrame;
+    public IFrameData RawFrame
     {
         set
         {
@@ -95,7 +95,7 @@ public class SKBitmapControlExt : SKBitmapControl
             {
                 if (_renderPair.ABitmap is WriteableBitmap2 w)
                 {
-                    w.SkiaBitmapDetected?.SetPixels(value.Address);
+                    w.SkiaBitmapDetected?.SetPixels(value.Pointer);
                 }
             }
 

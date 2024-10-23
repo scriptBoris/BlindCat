@@ -137,8 +137,6 @@ public class VideoPlayerSkia : SKBitmapControlExt, IMediaPlayer
         if (cachedVideoMeta != null && cachedVideoMeta.Streams.Length > 0 && cachedVideoMeta.Streams.Any(x => x.IsVideo))
         {
             videoEngine = new VideoEngine(videoSource, startFrom, cachedVideoMeta!, _ffmpeg.PathToFFmpegExe);
-            //videoEngine.PlayingProgressChanged += PlayingProgressChanged;
-            //videoEngine.VideoPlayingToEnd += VideoPlayingToEnd;
             videoEngine.MayFetchFrame2 += FetchBitmap;
         }
 
@@ -200,10 +198,9 @@ public class VideoPlayerSkia : SKBitmapControlExt, IMediaPlayer
         videoEngine.Dispose();
     }
 
-    private void FetchBitmap(object? invoker, FrameData bitmap)
+    private void FetchBitmap(object? invoker, IFrameData bitmap)
     {
         Dispatcher.UIThread.Post(() =>
-        //Dispatcher.UIThread.Invoke(() =>
         {
             RawFrame = bitmap;
         });

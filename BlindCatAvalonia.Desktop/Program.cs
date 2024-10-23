@@ -49,7 +49,7 @@ class Program
             .AddScoped<INavigationService, DesktopNavigation>()
             .AddScoped<ICrypto, DesktopCrypto>()
             .AddScoped<IConfig, FileConfig>()
-            .AddScoped<IFFMpegService, FFMpegService>()
+            .AddScoped<IFFMpegService, FFMpegProcessorService>()
             .AddScoped<IAudioService, WindowsAudio>();
     }
 
@@ -61,7 +61,7 @@ class Program
             .AddScoped<INavigationService, DesignNavigationService>()
             .AddScoped<ICrypto, DesktopCrypto>()
             .AddScoped<IConfig, FileConfig>()
-            .AddScoped<IFFMpegService, FFMpegService>()
+            .AddScoped<IFFMpegService, FFMpegProcessorService>()
             .AddScoped<IAudioService, WindowsAudio>();
     }
 }

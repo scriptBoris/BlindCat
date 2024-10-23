@@ -9,7 +9,16 @@ using System.Threading.Tasks;
 
 namespace BlindCatAvalonia.Core;
 
-public class FrameData : ILockedFramebuffer
+public interface IFrameData : IDisposable
+{
+    int Width { get; }
+    int BytesPerPixel { get; }
+    int Height { get; }
+    nint Pointer { get; }
+    PixelFormat PixelFormat { get; }
+}
+
+public class FrameData : IFrameData, ILockedFramebuffer
 {
     private readonly GCHandle _handle;
     private bool isDisposed;

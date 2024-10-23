@@ -23,11 +23,11 @@ using System.Threading.Tasks;
 
 namespace BlindCatAvalonia.Desktop.Implementations;
 
-public class FFMpegService : IFFMpegService
+public class FFMpegProcessorService : IFFMpegService
 {
     private readonly ICrypto _crypto;
 
-    public FFMpegService(ICrypto crypto)
+    public FFMpegProcessorService(ICrypto crypto)
     {
         _crypto = crypto;
     }
