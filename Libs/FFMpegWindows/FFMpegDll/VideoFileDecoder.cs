@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using FFmpeg.AutoGen.Abstractions;
+using FFMpegDll;
 using FFMpegDll.Internal;
 
 namespace FFmpegDll;
@@ -15,8 +16,10 @@ public sealed unsafe class VideoFileDecoder : IDisposable
     private readonly AVPacket* _pPacket;
     private readonly AVFrame* _receivedFrame;
     private readonly int _streamIndex;
+    private VideoFrameConverter? _converter;
 
-    public VideoFileDecoder(string filePath, AVHWDeviceType HWDeviceType = AVHWDeviceType.AV_HWDEVICE_TYPE_NONE)
+    //public VideoFileDecoder(string filePath, AVHWDeviceType HWDeviceType = AVHWDeviceType.AV_HWDEVICE_TYPE_NONE)
+    public VideoFileDecoder(string filePath, AVHWDeviceType HWDeviceType = AVHWDeviceType.AV_HWDEVICE_TYPE_OPENCL)
     {
         _pFormatContext = ffmpeg.avformat_alloc_context();
         _receivedFrame = ffmpeg.av_frame_alloc();
@@ -41,8 +44,21 @@ public sealed unsafe class VideoFileDecoder : IDisposable
 
         CodecName = ffmpeg.avcodec_get_name(codec->id);
         FrameSize = new Size(_pCodecContext->width, _pCodecContext->height);
-        PixelFormat = _pCodecContext->pix_fmt;
 
+
+        if (_pCodecContext->pix_fmt != AVPixelFormat.AV_PIX_FMT_RGBA)
+        {
+            var sourceSize = FrameSize;
+            var sourcePixelFormat = HWDeviceType == AVHWDeviceType.AV_HWDEVICE_TYPE_NONE
+                ? PixelFormat
+                : HWDeviceType.GetHWPixelFormat();
+            var destinationSize = sourceSize;
+            var destinationPixelFormat = AVPixelFormat.AV_PIX_FMT_RGBA;
+            _converter = new VideoFrameConverter(sourceSize, sourcePixelFormat, destinationSize, destinationPixelFormat);
+        }
+
+        //PixelFormat = _pCodecContext->pix_fmt;
+        PixelFormat = AVPixelFormat.AV_PIX_FMT_RGBA;
         _pPacket = ffmpeg.av_packet_alloc();
         _pFrame = ffmpeg.av_frame_alloc();
     }
@@ -83,7 +99,8 @@ public sealed unsafe class VideoFileDecoder : IDisposable
 
                     if (error == ffmpeg.AVERROR_EOF)
                     {
-                        frame = *_pFrame;
+                        //frame = *_pFrame;
+                        frame = ResolveFrame(*_pFrame);
                         return false;
                     }
 
@@ -102,15 +119,34 @@ public sealed unsafe class VideoFileDecoder : IDisposable
 
         error.ThrowExceptionIfError();
 
+        AVFrame* tframe;
         if (_pCodecContext->hw_device_ctx != null)
         {
             ffmpeg.av_hwframe_transfer_data(_receivedFrame, _pFrame, 0).ThrowExceptionIfError();
-            frame = *_receivedFrame;
+            //frame = *_receivedFrame;
+            tframe = _receivedFrame;
         }
         else
-            frame = *_pFrame;
+        {
+            //frame = *_pFrame;
+            tframe = _pFrame;
+        }
+
+        frame = ResolveFrame(*tframe);
 
         return true;
+    }
+
+    private AVFrame ResolveFrame(AVFrame frame)
+    {
+        if (_converter != null)
+        {
+            return _converter.Convert(frame);
+        }
+        else
+        {
+            return frame;
+        }
     }
 
     public IReadOnlyDictionary<string, string> GetContextInfo()

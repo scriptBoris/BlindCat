@@ -23,10 +23,15 @@ using System.Threading.Tasks;
 using System.Collections.ObjectModel;
 using Avalonia.Media.Imaging;
 using BlindCatAvalonia.Services;
+using System.Collections.Concurrent;
+using System.Drawing;
+using Avalonia;
+using Avalonia.Platform;
+using IntSize = System.Drawing.Size;
 
 namespace BlindCatAvalonia.MediaPlayers;
 
-public class VideoPlayerSkia : SKBitmapControlExt, IMediaPlayer
+public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
 {
     private IFFMpegService _ffmpeg = null!;
     private ICrypto _crypto = null!;
@@ -35,6 +40,7 @@ public class VideoPlayerSkia : SKBitmapControlExt, IMediaPlayer
 
     private double progress;
     private double progressTick;
+    private ReuseContext? reuseContext;
     private bool isDisposed;
     private SKBitmap? _currentFrame;
     private VideoEngine? videoEngine;
@@ -160,11 +166,19 @@ public class VideoPlayerSkia : SKBitmapControlExt, IMediaPlayer
             return;
 
         double rateMs = videoEngine != null ? cachedVideoMeta!.AvgFramerate : 30;
+        int fWidth = cachedVideoMeta!.Width;
+        int fHeight = cachedVideoMeta!.Height;
         timer = new System.Timers.Timer(rateMs);
         timer.Elapsed += Timer_Elapsed;
         timer.AutoReset = true;
         progress = (Duration.TotalSeconds > 0 && startFrom.TotalSeconds > 0) ? (double)(startFrom.TotalSeconds / Duration.TotalSeconds) : 0;
         progressTick = rateMs / Duration.TotalMilliseconds;
+        reuseContext = new ReuseContext
+        {
+            ReusableBitmap = new(new PixelSize(fWidth, fHeight), new Vector(96, 96), PixelFormat.Rgba8888, AlphaFormat.Opaque),
+            IntFrameSize = new IntSize(cachedVideoMeta!.Width, cachedVideoMeta!.Height),
+        };
+        Source(reuseContext);
 
         if (autoStart)
         {
@@ -196,13 +210,20 @@ public class VideoPlayerSkia : SKBitmapControlExt, IMediaPlayer
         //videoEngine.VideoPlayingToEnd -= VideoPlayingToEnd;
         videoEngine.MayFetchFrame2 -= FetchBitmap;
         videoEngine.Dispose();
+
+        if (reuseContext != null) 
+        {
+            reuseContext.Dispose();
+            reuseContext = null;
+        }
     }
 
     private void FetchBitmap(object? invoker, IFrameData bitmap)
     {
+        reuseContext?.Push(bitmap);
         Dispatcher.UIThread.Post(() =>
         {
-            RawFrame = bitmap;
+            InvalidateVisual();
         });
     }
 
@@ -530,7 +551,7 @@ public class VideoPlayerSkia : SKBitmapControlExt, IMediaPlayer
                 });
 
                 var dur = TimeSpan.FromSeconds(cachedVideoMeta.Duration);
-                var durationTxt = string.Format("{0:D2}:{1:D2}:{2:D2}:{3:D3}", 
+                var durationTxt = string.Format("{0:D2}:{1:D2}:{2:D2}:{3:D3}",
                     (int)dur.TotalHours, // Часы (включая дни)
                     dur.Minutes, // Минуты
                     dur.Seconds, // Секунды
@@ -588,7 +609,7 @@ public class VideoPlayerSkia : SKBitmapControlExt, IMediaPlayer
                 }
             }
         }
-        
+
         return res.ToArray();
     }
 
@@ -601,6 +622,39 @@ public class VideoPlayerSkia : SKBitmapControlExt, IMediaPlayer
         {
             Video.Dispose();
             Audio.Dispose();
+        }
+    }
+
+    private class ReuseContext : IReusableContext
+    {
+        private readonly ConcurrentQueue<IFrameData> _frames = new ();
+
+        public event EventHandler? ExternalDisposed;
+
+        public IntSize IntFrameSize { get; set; }
+        public required ReusableBitmap ReusableBitmap { get; set; }
+        public bool IsDisposed { get; private set; }
+        public bool DisposeAfterRender { get; set; }
+
+        public void Dispose()
+        {
+        }
+
+        public void Push(IFrameData frame)
+        {
+            _frames.Enqueue(frame);
+        }
+
+        public IFrameData? GetFrame()
+        {
+            if (_frames.TryDequeue(out var frame))
+            {
+                return frame;
+            }
+            else
+            {
+                return null;
+            }
         }
     }
 }

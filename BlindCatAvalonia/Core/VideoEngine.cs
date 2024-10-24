@@ -1,23 +1,17 @@
-﻿using FFMpegProcessor;
-using FFMpegProcessor.Models;
+﻿using FFMpegProcessor.Models;
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
-using Size = System.Drawing.Size;
-using Avalonia.Media.Imaging;
-using System.Runtime.InteropServices;
 using Avalonia.Platform;
 using System.Diagnostics;
 using FFmpegDll;
 using FFmpeg.AutoGen.Bindings.DynamicallyLoaded;
 using FFMpegDll;
 using FFmpeg.AutoGen.Abstractions;
+using System.Runtime.InteropServices;
+using Size = System.Drawing.Size;
 
 namespace BlindCatAvalonia.Core;
 
@@ -81,6 +75,7 @@ public class VideoEngine : IDisposable
 
         Position = startFrom;
         engine = new(Engine);
+        engine.Name = "Engine (ffmpeg frame reader)";
         timer = new();
         timer.Elapsed += OnTimer;
         timer.Enabled = true;
@@ -180,7 +175,6 @@ public class VideoEngine : IDisposable
 
     private void Engine()
     {
-        var sw = new Stopwatch();
         var sourceSize = videoReader.FrameSize;
         var sourcePixelFormat = HWDevice == AVHWDeviceType.AV_HWDEVICE_TYPE_NONE
             ? videoReader.PixelFormat
@@ -191,6 +185,7 @@ public class VideoEngine : IDisposable
 
         while (true)
         {
+            var sw = Stopwatch.StartNew();
             bool successFrame = videoReader.TryDecodeNextFrame(out var frame);
 
             if (isDisposed)
@@ -211,22 +206,9 @@ public class VideoEngine : IDisposable
             if (isDisposed)
                 break;
 
-            sw.Start();
-            if (videoReader.PixelFormat != AVPixelFormat.AV_PIX_FMT_RGBA)
-            {
-                var convertedFrame = vfc.Convert(frame);
-                var fd = MakeFrame(convertedFrame);
-                _frameBuffer.Enqueue(fd);
-            }
-            else
-            {
-                var fd = MakeFrame(frame);
-                _frameBuffer.Enqueue(fd);
-            }
-
-            sw.Stop();
-            Debug.WriteLine($"Lat: {sw.ElapsedMilliseconds}ms");
-            sw.Restart();
+            var fd = MakeFrame(frame);
+            _frameBuffer.Enqueue(fd);
+            sw.StopAndCout("Fetching frame & make bin array");
 
             framesCounter++;
             //Debug.WriteLine($"Frame! {framesCounter} ({sw.ElapsedMilliseconds}ms) ({d.TotalMilliseconds}ms)");
@@ -276,18 +258,24 @@ public class VideoEngine : IDisposable
         return f;
     }
 
-    private unsafe FrameDataNative MakeFrame(FFmpeg.AutoGen.Abstractions.AVFrame fframe)
+    private unsafe FrameDataNative MakeFrame(FFmpeg.AutoGen.Abstractions.AVFrame ffframe)
     {
-        var ptr = (IntPtr)fframe.data[0];
-        var f = new FrameDataNative
+        int w = _meta.Width;
+        int h = _meta.Height;
+        var dat = new byte[w * h * 4];
+        var hndl = GCHandle.Alloc(dat, GCHandleType.Pinned);
+        var ptr = (IntPtr)ffframe.data[0];
+        Marshal.Copy(ptr, dat, 0, dat.Length);
+
+        var framedata = new FrameDataNative
         {
             Height = _meta.Height,
             Width = _meta.Width,
-            Pointer = ptr,
+            Pointer = hndl.AddrOfPinnedObject(),
             PixelFormat = PixelFormat.Rgba8888,
-            AVFrame = fframe,
+            Handle = hndl,
         };
-        return f;
+        return framedata;
     }
 
     private static AVPixelFormat GetHWPixelFormat(AVHWDeviceType hWDevice)
@@ -311,15 +299,22 @@ public class VideoEngine : IDisposable
 
     private class FrameDataNative : IFrameData
     {
+        private bool isDisposed;
+
         public int BytesPerPixel => 4;
         public required int Width { get; set; }
         public required int Height { get; set; }
         public required nint Pointer { get; set; }
         public required PixelFormat PixelFormat { get; set; }
-        public required AVFrame AVFrame { get; set; }
+        public required GCHandle Handle { private get; set; }
 
         public void Dispose()
         {
+            if (isDisposed) 
+                return; 
+
+            isDisposed = true;
+            Handle.Free();
         }
     }
 }

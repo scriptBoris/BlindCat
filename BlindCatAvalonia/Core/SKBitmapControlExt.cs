@@ -56,6 +56,7 @@ public class SKBitmapControlExt : SKBitmapControl
     }
 
     private IFrameData? _oldRawFrame;
+    [Obsolete("Use OrderDraw")]
     public IFrameData RawFrame
     {
         set
@@ -81,22 +82,15 @@ public class SKBitmapControlExt : SKBitmapControl
                 var pix = value.Pointer;
                 var scale = new Vector(96, 96);
                 var format = value.PixelFormat;
-                var wBitmap = new WriteableBitmap2(format, AlphaFormat.Premul, pix, size, scale, stride);
+                var wBitmap = new ReusableBitmap(format, AlphaFormat.Premul, pix, size, scale, stride);
                 _renderPair = new RenderPair(wBitmap);
-
-                using (var vok = wBitmap.Lock())
-                {
-                    var p = vok.GetType().GetField("_bitmap", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(vok);
-                    var sk = p as SKBitmap;
-                    wBitmap.SkiaBitmapDetected = sk;
-                }
             }
-            else
+            else if (_renderPair.ABitmap is ReusableBitmap w)
             {
-                if (_renderPair.ABitmap is WriteableBitmap2 w)
-                {
-                    w.SkiaBitmapDetected?.SetPixels(value.Pointer);
-                }
+                if (!IsRendering)
+                    w.Next(value);
+                else
+                    w.Reuse(value);
             }
 
             if (oldSize != size)
@@ -155,6 +149,11 @@ public class SKBitmapControlExt : SKBitmapControl
         _forceScale = null;
         if (redraw)
             InvalidateVisual();
+    }
+
+    public void OrderDraw()
+    {
+
     }
 
     private static RenderPair? MakeAvaloniaBitmap(SKBitmap? skia)
@@ -408,20 +407,5 @@ public class SKBitmapControlExt : SKBitmapControl
             var dest = new Rect(_bounds.Left, _bounds.Top, _bounds.Width, _bounds.Height);
             context.DrawBitmap(abmp, src, dest);
         }
-    }
-
-    private class WriteableBitmap2 : WriteableBitmap
-    {
-        public WriteableBitmap2(PixelSize size, Vector dpi, PixelFormat? format = null, AlphaFormat? alphaFormat = null)
-            : base(size, dpi, format, alphaFormat)
-        {
-        }
-
-        public WriteableBitmap2(PixelFormat format, AlphaFormat alphaFormat, nint data, PixelSize size, Vector dpi, int stride)
-            : base(format, alphaFormat, data, size, dpi, stride)
-        {
-        }
-
-        public SKBitmap? SkiaBitmapDetected { get; set; }
     }
 }
