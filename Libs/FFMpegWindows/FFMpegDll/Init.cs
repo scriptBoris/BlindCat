@@ -10,6 +10,18 @@ namespace FFMpegDll;
 
 public static class Init
 {
+    private static bool initialized = false;
+
+    public static void InitializeFFMpeg()
+    {
+        if (!initialized)
+        {
+            initialized = true;
+            RegisterFFmpegBinaries();
+            DynamicallyLoadedBindings.Initialize();
+        }
+    }
+
     public static void RegisterFFmpegBinaries()
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))

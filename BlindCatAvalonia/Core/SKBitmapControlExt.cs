@@ -9,19 +9,8 @@ using Avalonia.Platform;
 using Avalonia.Rendering;
 using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
-using HarfBuzzSharp;
 using SkiaSharp;
 using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Timers;
 
 namespace BlindCatAvalonia.Core;
 
@@ -50,53 +39,6 @@ public class SKBitmapControlExt : SKBitmapControl
 
             if (oldSize != newSize)
                 InvalidateMeasure();
-
-            InvalidateVisual();
-        }
-    }
-
-    private IFrameData? _oldRawFrame;
-    [Obsolete("Use OrderDraw")]
-    public IFrameData RawFrame
-    {
-        set
-        {
-            _oldRawFrame?.Dispose();
-            _oldRawFrame = value;
-            var oldSize = _renderPair?.PixelSize;
-
-            var stride = value.Width * value.BytesPerPixel;
-            var size = new PixelSize(value.Width, value.Height);
-
-            if (_renderPair == null || oldSize != size)
-            {
-                if (IsRendering && _renderPair != null)
-                {
-                    _renderPair.AutoDispose = true;
-                }
-                else
-                {
-                    _renderPair?.Dispose();
-                }
-
-                var pix = value.Pointer;
-                var scale = new Vector(96, 96);
-                var format = value.PixelFormat;
-                var wBitmap = new ReusableBitmap(format, AlphaFormat.Premul, pix, size, scale, stride);
-                _renderPair = new RenderPair(wBitmap);
-            }
-            else if (_renderPair.ABitmap is ReusableBitmap w)
-            {
-                if (!IsRendering)
-                    w.Next(value);
-                else
-                    w.Reuse(value);
-            }
-
-            if (oldSize != size)
-            {
-                InvalidateMeasure();
-            }
 
             InvalidateVisual();
         }
@@ -149,11 +91,6 @@ public class SKBitmapControlExt : SKBitmapControl
         _forceScale = null;
         if (redraw)
             InvalidateVisual();
-    }
-
-    public void OrderDraw()
-    {
-
     }
 
     private static RenderPair? MakeAvaloniaBitmap(SKBitmap? skia)
@@ -304,8 +241,6 @@ public class SKBitmapControlExt : SKBitmapControl
         using (context.PushTransform(translateMatrix * scaleMatrix))
         {
             context.Custom(new DrawOperation(this, new Rect(0, 0, bounds.Width, bounds.Height), bitmap));
-            //context.Custom(new DrawOperation(this, new Rect(0, 0, bounds.Width, bounds.Height), bitmap.SKBitmap));
-            //context.DrawImage(bitmap.ABitmap, new Rect(0, 0, bounds.Width, bounds.Height));
         }
     }
 

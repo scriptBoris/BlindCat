@@ -166,8 +166,6 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
             return;
 
         double rateMs = videoEngine != null ? cachedVideoMeta!.AvgFramerate : 30;
-        int fWidth = cachedVideoMeta!.Width;
-        int fHeight = cachedVideoMeta!.Height;
         timer = new System.Timers.Timer(rateMs);
         timer.Elapsed += Timer_Elapsed;
         timer.AutoReset = true;
@@ -175,8 +173,8 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
         progressTick = rateMs / Duration.TotalMilliseconds;
         reuseContext = new ReuseContext
         {
-            ReusableBitmap = new(new PixelSize(fWidth, fHeight), new Vector(96, 96), PixelFormat.Rgba8888, AlphaFormat.Opaque),
             IntFrameSize = new IntSize(cachedVideoMeta!.Width, cachedVideoMeta!.Height),
+            VideoEngine = videoEngine,
         };
         Source(reuseContext);
 
@@ -218,13 +216,13 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
         }
     }
 
-    private void FetchBitmap(object? invoker, IFrameData bitmap)
+    private void FetchBitmap(object? invoker, IFrameData frameData)
     {
-        reuseContext?.Push(bitmap);
+        //reuseContext?.Push(frameData);
         Dispatcher.UIThread.Post(() =>
         {
-            InvalidateVisual();
-        });
+            Draw(frameData);
+        }, DispatcherPriority.Render);
     }
 
     #region media player
@@ -632,9 +630,9 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
         public event EventHandler? ExternalDisposed;
 
         public IntSize IntFrameSize { get; set; }
-        public required ReusableBitmap ReusableBitmap { get; set; }
         public bool IsDisposed { get; private set; }
         public bool DisposeAfterRender { get; set; }
+        public required VideoEngine VideoEngine { get; set; }
 
         public void Dispose()
         {
@@ -655,6 +653,11 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
             {
                 return null;
             }
+        }
+
+        public void Recycle(IFrameData data)
+        {
+            VideoEngine.Recycle(data);
         }
     }
 }

@@ -11,7 +11,10 @@ using FFmpeg.AutoGen.Bindings.DynamicallyLoaded;
 using FFMpegDll;
 using FFmpeg.AutoGen.Abstractions;
 using System.Runtime.InteropServices;
-using Size = System.Drawing.Size;
+using System.Collections.Generic;
+using System.Linq;
+using Avalonia;
+using IntSize = System.Drawing.Size;
 
 namespace BlindCatAvalonia.Core;
 
@@ -22,7 +25,7 @@ public class VideoEngine : IDisposable
     private readonly TimeSpan _duration;
     private readonly VideoMetadata _meta;
     private readonly ConcurrentQueue<IFrameData> _frameBuffer = new();
-    private readonly Size? _resize;
+    private readonly IntSize? _resize;
     private System.Timers.Timer timer;
     private VideoFileDecoder videoReader;
     private Thread engine;
@@ -31,6 +34,10 @@ public class VideoEngine : IDisposable
     private bool isEngineRunning;
     private bool isEndVideo;
     private int framesCounter = 0;
+    private readonly object _locker = new();
+    private readonly ConcurrentBag<FrameDataNative> _recyrclePool = [];
+    //private readonly FrameDataNative frame0;
+    //private readonly FrameDataNative frame1;
 
     public event EventHandler<double>? PlayingProgressChanged;
     public event EventHandler? VideoPlayingToEnd;
@@ -44,8 +51,7 @@ public class VideoEngine : IDisposable
         if (meta.AvgFramerate == 0)
             throw new InvalidOperationException("Invalid video meta data");
 
-        FFMpegDll.Init.RegisterFFmpegBinaries();
-        DynamicallyLoadedBindings.Initialize();
+        FFMpegDll.Init.InitializeFFMpeg();
 
         _meta = meta;
         switch (play)
@@ -82,6 +88,12 @@ public class VideoEngine : IDisposable
         timer.AutoReset = true;
         timer.Interval = _pauseForFrameRate.TotalMilliseconds;
 
+        // make frames 1, 2
+        var f1 = MakeHard(_meta, "1");
+        var f2 = MakeHard(_meta, "2");
+        _recyrclePool.Add(f1);
+        _recyrclePool.Add(f2);
+
         try
         {
             var split = _meta.SampleAspectRatio?.Split(':');
@@ -93,7 +105,7 @@ public class VideoEngine : IDisposable
 
                 int neww = (int)_meta.Width;
                 int newh = (int)((float)_meta.Height * coofV);
-                _resize = new Size(neww, newh);
+                _resize = new IntSize(neww, newh);
             }
         }
         catch (Exception)
@@ -143,10 +155,9 @@ public class VideoEngine : IDisposable
 
     private void OnTimer(object? sender, ElapsedEventArgs e)
     {
-        //Debug.WriteLine($"On frame time (buffer count: {_bitmapsBuffer.Count})");
-
         if (_frameBuffer.TryDequeue(out var frame))
         {
+            //Debug.WriteLine($"On frame time (frames: {framesCounter})");
             currentFrameNumber++;
             MayFetchFrame2?.Invoke(this, frame);
 
@@ -175,18 +186,18 @@ public class VideoEngine : IDisposable
 
     private void Engine()
     {
-        var sourceSize = videoReader.FrameSize;
-        var sourcePixelFormat = HWDevice == AVHWDeviceType.AV_HWDEVICE_TYPE_NONE
-            ? videoReader.PixelFormat
-            : GetHWPixelFormat(HWDevice);
-        var destinationSize = sourceSize;
-        var destinationPixelFormat = AVPixelFormat.AV_PIX_FMT_RGBA;
-        using var vfc = new VideoFrameConverter(sourceSize, sourcePixelFormat, destinationSize, destinationPixelFormat);
-
         while (true)
         {
+            if (_frameBuffer.Count >= 3)
+            {
+                Thread.Sleep(1);
+                continue;
+            }
+
             var sw = Stopwatch.StartNew();
-            bool successFrame = videoReader.TryDecodeNextFrame(out var frame);
+            var dec = Stopwatch.StartNew();
+            bool successFrame = videoReader.TryDecodeNextFrame(out var ff_frame);
+            dec.StopAndCout("TryDecodeNextFrame");
 
             if (isDisposed)
                 break;
@@ -197,18 +208,16 @@ public class VideoEngine : IDisposable
                 return;
             }
 
-            if (_frameBuffer.Count > 2)
-            {
-                Thread.Sleep(3);
-                continue;
-            }
-
             if (isDisposed)
                 break;
 
-            var fd = MakeFrame(frame);
-            _frameBuffer.Enqueue(fd);
-            sw.StopAndCout("Fetching frame & make bin array");
+            var frameData = FetchOrMakeFrame(ff_frame);
+            sw.StopAndCout("Engine cycle");
+
+            if (frameData == null)
+                continue;
+
+            _frameBuffer.Enqueue(frameData);
 
             framesCounter++;
             //Debug.WriteLine($"Frame! {framesCounter} ({sw.ElapsedMilliseconds}ms) ({d.TotalMilliseconds}ms)");
@@ -247,71 +256,79 @@ public class VideoEngine : IDisposable
         engine = null!;
     }
 
-    private FrameData MakeFrame(byte[] array)
+    private FrameDataNative FetchOrMakeFrameAbs(AVFrame ffframe)
     {
-        var f = new FrameData(array)
+        FrameDataNative? frame;
+        while ((frame = FetchOrMakeFrame(ffframe)) == null)
         {
-            Height = _meta.Height,
-            Width = _meta.Width,
-            TotalBytes = array.Length,
-        };
-        return f;
+            Thread.Sleep(3);
+        }
+        return frame;
     }
 
-    private unsafe FrameDataNative MakeFrame(FFmpeg.AutoGen.Abstractions.AVFrame ffframe)
+    private unsafe FrameDataNative? FetchOrMakeFrame(AVFrame ffframe)
     {
-        int w = _meta.Width;
-        int h = _meta.Height;
-        var dat = new byte[w * h * 4];
-        var hndl = GCHandle.Alloc(dat, GCHandleType.Pinned);
-        var ptr = (IntPtr)ffframe.data[0];
-        Marshal.Copy(ptr, dat, 0, dat.Length);
-
-        var framedata = new FrameDataNative
+        var sw = Stopwatch.StartNew();
+        if (!_recyrclePool.TryTake(out var free))
         {
-            Height = _meta.Height,
-            Width = _meta.Width,
+            if (_recyrclePool.Count > 10)
+            {
+                // wtf?
+                //Debugger.Break();
+                return null;
+            }
+
+            free = MakeHard(_meta, $"{_recyrclePool.Count + 1}");
+            _recyrclePool.Add(free);
+        }
+
+        nint pointerFFMpegBitmap = (IntPtr)ffframe.data[0];
+        Marshal.Copy(pointerFFMpegBitmap, free.Buffer, 0, free.Buffer.Length);
+        sw.StopAndCout("FetchOrMakeFrame");
+        return free;
+    }
+
+    private static FrameDataNative MakeHard(VideoMetadata meta, string dbgname)
+    {
+        byte[] dat = new byte[meta.Width * meta.Height * 4];
+        var hndl = GCHandle.Alloc(dat, GCHandleType.Pinned);
+        var free = new FrameDataNative
+        {
+            Height = meta.Height,
+            Width = meta.Width,
             Pointer = hndl.AddrOfPinnedObject(),
             PixelFormat = PixelFormat.Rgba8888,
             Handle = hndl,
+            Buffer = dat,
+            DebugName = dbgname,
         };
-        return framedata;
+        return free;
     }
 
-    private static AVPixelFormat GetHWPixelFormat(AVHWDeviceType hWDevice)
+    public void Recycle(IFrameData data)
     {
-        return hWDevice switch
-        {
-            AVHWDeviceType.AV_HWDEVICE_TYPE_NONE => AVPixelFormat.AV_PIX_FMT_NONE,
-            AVHWDeviceType.AV_HWDEVICE_TYPE_VDPAU => AVPixelFormat.AV_PIX_FMT_VDPAU,
-            AVHWDeviceType.AV_HWDEVICE_TYPE_CUDA => AVPixelFormat.AV_PIX_FMT_CUDA,
-            AVHWDeviceType.AV_HWDEVICE_TYPE_VAAPI => AVPixelFormat.AV_PIX_FMT_VAAPI,
-            AVHWDeviceType.AV_HWDEVICE_TYPE_DXVA2 => AVPixelFormat.AV_PIX_FMT_NV12,
-            AVHWDeviceType.AV_HWDEVICE_TYPE_QSV => AVPixelFormat.AV_PIX_FMT_QSV,
-            AVHWDeviceType.AV_HWDEVICE_TYPE_VIDEOTOOLBOX => AVPixelFormat.AV_PIX_FMT_VIDEOTOOLBOX,
-            AVHWDeviceType.AV_HWDEVICE_TYPE_D3D11VA => AVPixelFormat.AV_PIX_FMT_NV12,
-            AVHWDeviceType.AV_HWDEVICE_TYPE_DRM => AVPixelFormat.AV_PIX_FMT_DRM_PRIME,
-            AVHWDeviceType.AV_HWDEVICE_TYPE_OPENCL => AVPixelFormat.AV_PIX_FMT_OPENCL,
-            AVHWDeviceType.AV_HWDEVICE_TYPE_MEDIACODEC => AVPixelFormat.AV_PIX_FMT_MEDIACODEC,
-            _ => AVPixelFormat.AV_PIX_FMT_NONE
-        };
+        _recyrclePool.Add((FrameDataNative)data);
     }
 
     private class FrameDataNative : IFrameData
     {
         private bool isDisposed;
 
+        public bool IsLocked { get; set; }
         public int BytesPerPixel => 4;
         public required int Width { get; set; }
         public required int Height { get; set; }
         public required nint Pointer { get; set; }
         public required PixelFormat PixelFormat { get; set; }
         public required GCHandle Handle { private get; set; }
+        public required byte[] Buffer { get; init; }
+
+        public required string DebugName { get; init; }
 
         public void Dispose()
         {
-            if (isDisposed) 
-                return; 
+            if (isDisposed)
+                return;
 
             isDisposed = true;
             Handle.Free();

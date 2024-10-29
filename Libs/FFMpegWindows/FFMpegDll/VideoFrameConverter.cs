@@ -1,6 +1,7 @@
 ﻿using FFmpeg.AutoGen.Abstractions;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -60,6 +61,7 @@ public sealed unsafe class VideoFrameConverter : IDisposable
 
     public AVFrame Convert(AVFrame sourceFrame)
     {
+        var sw = Stopwatch.StartNew();
         ffmpeg.sws_scale(_pConvertContext,
             sourceFrame.data,
             sourceFrame.linesize,
@@ -72,6 +74,8 @@ public sealed unsafe class VideoFrameConverter : IDisposable
         data.UpdateFrom(_dstData);
         var linesize = new int8();
         linesize.UpdateFrom(_dstLinesize);
+        sw.Stop();
+        Debug.WriteLine($"Convert pixels: {sw.ElapsedMilliseconds}ms");
 
         return new AVFrame
         {

@@ -16,10 +16,10 @@ public sealed unsafe class VideoFileDecoder : IDisposable
     private readonly AVPacket* _pPacket;
     private readonly AVFrame* _receivedFrame;
     private readonly int _streamIndex;
-    private VideoFrameConverter? _converter;
+    private readonly VideoFrameConverter? _converter;
 
     //public VideoFileDecoder(string filePath, AVHWDeviceType HWDeviceType = AVHWDeviceType.AV_HWDEVICE_TYPE_NONE)
-    public VideoFileDecoder(string filePath, AVHWDeviceType HWDeviceType = AVHWDeviceType.AV_HWDEVICE_TYPE_OPENCL)
+    public VideoFileDecoder(string filePath, AVHWDeviceType HWDeviceType = AVHWDeviceType.AV_HWDEVICE_TYPE_DXVA2)
     {
         _pFormatContext = ffmpeg.avformat_alloc_context();
         _receivedFrame = ffmpeg.av_frame_alloc();
@@ -123,12 +123,10 @@ public sealed unsafe class VideoFileDecoder : IDisposable
         if (_pCodecContext->hw_device_ctx != null)
         {
             ffmpeg.av_hwframe_transfer_data(_receivedFrame, _pFrame, 0).ThrowExceptionIfError();
-            //frame = *_receivedFrame;
             tframe = _receivedFrame;
         }
         else
         {
-            //frame = *_pFrame;
             tframe = _pFrame;
         }
 

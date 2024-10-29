@@ -8,15 +8,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Reflection;
+using System.Diagnostics;
 
 namespace BlindCatAvalonia.Core;
 
 public class ReusableBitmap : WriteableBitmap
 {
-    //public ReusableBitmap(PixelSize size, Vector dpi, PixelFormat? format = null, AlphaFormat? alphaFormat = null)
-    //    : base(size, dpi, format, alphaFormat)
-    //{
-    //}
+    private IFrameData? _pixmap;
 
     public ReusableBitmap(PixelSize size, Vector dpi, PixelFormat? format = null, AlphaFormat? alphaFormat = null)
         : base(size, dpi, format, alphaFormat)
@@ -40,19 +38,18 @@ public class ReusableBitmap : WriteableBitmap
         }
     }
 
+    public required string DebugName { get; set; }
     public SKBitmap SkiaBitmapDetected { get; set; }
+    public bool IsRendering { get; set; }
 
-    public void Reuse(IFrameData data)
+    public void Draw(IFrameData data)
     {
+        if (_pixmap == data)
+        {
+            return;
+        }
+
+        _pixmap = data;
         SkiaBitmapDetected.SetPixels(data.Pointer);
-    }
-
-    public void ReusePixels(nint pixmap)
-    {
-        SkiaBitmapDetected.SetPixels(pixmap);
-    }
-
-    public void Next(IFrameData value)
-    {
     }
 }
