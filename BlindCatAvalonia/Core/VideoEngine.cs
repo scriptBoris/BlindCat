@@ -36,6 +36,7 @@ public class VideoEngine : IDisposable
     private int framesCounter = 0;
     private readonly object _locker = new();
     private readonly ConcurrentBag<FrameDataNative> _recyrclePool = [];
+    private readonly List<FrameDataNative> _totalPool = [];
     //private readonly FrameDataNative frame0;
     //private readonly FrameDataNative frame1;
 
@@ -153,34 +154,39 @@ public class VideoEngine : IDisposable
         timer.Stop();
     }
 
+    private readonly object _timerLocker = new();
+
     private void OnTimer(object? sender, ElapsedEventArgs e)
     {
-        if (_frameBuffer.TryDequeue(out var frame))
+        lock (_timerLocker)
         {
-            //Debug.WriteLine($"On frame time (frames: {framesCounter})");
-            currentFrameNumber++;
-            MayFetchFrame2?.Invoke(this, frame);
-
-            if (currentFrameNumber >= _totalFrames)
+            if (_frameBuffer.TryDequeue(out var frame))
             {
-                Position = _duration;
-                PlayingProgressChanged?.Invoke(this, 1);
+                //Debug.WriteLine($"On frame time (frames: {framesCounter})");
+                currentFrameNumber++;
+                MayFetchFrame2?.Invoke(this, frame);
+
+                if (currentFrameNumber >= _totalFrames)
+                {
+                    Position = _duration;
+                    PlayingProgressChanged?.Invoke(this, 1);
+                }
+                else
+                {
+                    double progress = (double)currentFrameNumber / (double)_totalFrames;
+                    Position = _duration * progress;
+                    PlayingProgressChanged?.Invoke(this, progress);
+                }
+            }
+            else if (isEndVideo)
+            {
+                timer.Stop();
+                VideoPlayingToEnd?.Invoke(this, EventArgs.Empty);
             }
             else
             {
-                double progress = (double)currentFrameNumber / (double)_totalFrames;
-                Position = _duration * progress;
-                PlayingProgressChanged?.Invoke(this, progress);
+                //Debug.WriteLine("No match drawing Vframe");
             }
-        }
-        else if (isEndVideo)
-        {
-            timer.Stop();
-            VideoPlayingToEnd?.Invoke(this, EventArgs.Empty);
-        }
-        else
-        {
-            //Debug.WriteLine("No match drawing Vframe");
         }
     }
 
@@ -268,18 +274,26 @@ public class VideoEngine : IDisposable
 
     private unsafe FrameDataNative? FetchOrMakeFrame(AVFrame ffframe)
     {
+        const int WTF = 10;
         var sw = Stopwatch.StartNew();
         if (!_recyrclePool.TryTake(out var free))
         {
-            if (_recyrclePool.Count > 10)
+            if (_recyrclePool.Count > WTF)
             {
                 // wtf?
-                //Debugger.Break();
+                Debugger.Break();
                 return null;
             }
 
-            free = MakeHard(_meta, $"{_recyrclePool.Count + 1}");
+            free = MakeHard(_meta, $"{_totalPool.Count + 1}");
             _recyrclePool.Add(free);
+        }
+
+        if (_recyrclePool.Count > WTF)
+        {
+            // wtf?
+            Debugger.Break();
+            return null;
         }
 
         nint pointerFFMpegBitmap = (IntPtr)ffframe.data[0];
@@ -288,7 +302,7 @@ public class VideoEngine : IDisposable
         return free;
     }
 
-    private static FrameDataNative MakeHard(VideoMetadata meta, string dbgname)
+    private FrameDataNative MakeHard(VideoMetadata meta, string dbgname)
     {
         byte[] dat = new byte[meta.Width * meta.Height * 4];
         var hndl = GCHandle.Alloc(dat, GCHandleType.Pinned);
@@ -302,6 +316,9 @@ public class VideoEngine : IDisposable
             Buffer = dat,
             DebugName = dbgname,
         };
+
+        _totalPool.Add(free);
+
         return free;
     }
 

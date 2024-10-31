@@ -219,10 +219,11 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
     private void FetchBitmap(object? invoker, IFrameData frameData)
     {
         //reuseContext?.Push(frameData);
-        Dispatcher.UIThread.Post(() =>
-        {
-            Draw(frameData);
-        }, DispatcherPriority.Render);
+        PushFrame(frameData);
+        //Dispatcher.UIThread.Post(() =>
+        //{
+        //    PushFrame(frameData);
+        //}, DispatcherPriority.Render);
     }
 
     #region media player
