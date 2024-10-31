@@ -274,26 +274,19 @@ public class VideoEngine : IDisposable
 
     private unsafe FrameDataNative? FetchOrMakeFrame(AVFrame ffframe)
     {
-        const int WTF = 10;
+        const int MAX_FRAMES = 10;
         var sw = Stopwatch.StartNew();
         if (!_recyrclePool.TryTake(out var free))
         {
-            if (_recyrclePool.Count > WTF)
-            {
-                // wtf?
-                Debugger.Break();
-                return null;
-            }
-
             free = MakeHard(_meta, $"{_totalPool.Count + 1}");
             _recyrclePool.Add(free);
         }
 
-        if (_recyrclePool.Count > WTF)
+        if (_totalPool.Count > MAX_FRAMES)
         {
-            // wtf?
+            // something went wrong
             Debugger.Break();
-            return null;
+            throw new InvalidOperationException("Maximum possible number of frames exceeded");
         }
 
         nint pointerFFMpegBitmap = (IntPtr)ffframe.data[0];

@@ -39,14 +39,9 @@ public class SKBitmapControlReuse : SKBitmapControl
     private double? _forceScale;
     private IReusableContext? _reuseContext;
     private IFrameData? _currentFrameData;
-    private IFrameData? _oldFrameData;
     private BitmapPool? _bitmapPool;
-    private HardbassBuffer? _buffer;
-    private DispatcherTimer? dis;
-
-    //private BitmapPack? _pack;
-    //private ReusableBitmap? _reuseBmp;
-    private readonly object _lockObject = new();
+    private FramePool? _framePool;
+    private DispatcherTimer? _drawTimer;
 
     #region props
     public double RenderScale { get; private set; } = -1.0;
@@ -89,12 +84,8 @@ public class SKBitmapControlReuse : SKBitmapControl
 
     public void Source(IReusableContext source)
     {
-        //var pix = new PixelSize(source.IntFrameSize.Width, source.IntFrameSize.Height);
-        //var vector = new Vector(96, 96);
-        //_reuseBmp = new ReusableBitmap(pix, vector, PixelFormat.Rgba8888, AlphaFormat.Opaque);
-        //_pack = new(source.IntFrameSize);
-        _bitmapPool = new(source.IntFrameSize);
-        _buffer = new HardbassBuffer(source, this);
+        _bitmapPool = new BitmapPool(source.IntFrameSize);
+        _framePool = new FramePool(source, this);
         Dispatcher.UIThread.Post(() =>
         {
             _reuseContext = source;
@@ -104,7 +95,7 @@ public class SKBitmapControlReuse : SKBitmapControl
 
     public void PushFrame(IFrameData data)
     {
-        _buffer.Add(data);
+        _framePool.Add(data);
     }
 
     protected override void OnLoaded(RoutedEventArgs e)
@@ -112,13 +103,13 @@ public class SKBitmapControlReuse : SKBitmapControl
         base.OnLoaded(e);
         OpacityMask = new ImmutableSolidColorBrush(Colors.Gray);
 
-        dis = new DispatcherTimer(DispatcherPriority.Render);
-        dis.Interval = TimeSpan.FromMilliseconds(10);
-        dis.Tick += (s, e) =>
+        _drawTimer = new DispatcherTimer(DispatcherPriority.Background);
+        _drawTimer.Interval = TimeSpan.FromMilliseconds(5);
+        _drawTimer.Tick += (s, e) =>
         {
             InvalidateVisual();
         };
-        dis.Start();
+        _drawTimer.Start();
     }
 
     protected override void OnUnloaded(RoutedEventArgs e)
@@ -129,8 +120,8 @@ public class SKBitmapControlReuse : SKBitmapControl
             _reuseContext.Dispose();
             _reuseContext = null;
 
-            dis?.Stop();
-            dis = null;
+            _drawTimer?.Stop();
+            _drawTimer = null;
         }
     }
 
@@ -168,7 +159,7 @@ public class SKBitmapControlReuse : SKBitmapControl
     private DateTime lastDraw;
     public override void Render(DrawingContext context)
     {
-        if (_reuseContext == null || _reuseContext.IsDisposed || _bitmapPool == null || _buffer == null)
+        if (_reuseContext == null || _reuseContext.IsDisposed || _bitmapPool == null || _framePool == null)
         {
             context.DrawRectangle(new SolidColorBrush(Colors.Transparent), null, Bounds, 0);
             return;
@@ -225,49 +216,49 @@ public class SKBitmapControlReuse : SKBitmapControl
         using (context.PushClip(viewPort))
         using (context.PushTransform(translateMatrix * scaleMatrix))
         {
-            bool preserve = false;
-            var frameData = _buffer.FetchCarefulAndLock();
+            bool useStatic = false;
+            var frameData = _framePool.FetchCarefulAndLock();
             if (frameData == null)
             {
                 frameData = _currentFrameData;
-                preserve = _currentFrameData != null;
+                useStatic = _currentFrameData != null;
             }
 
             if (frameData == null)
+            {
+                _currentFrameData = null;
                 return;
+            }
 
-            if (_buffer.Count > 10)
+            if (_framePool.Count > 20)
                 Debugger.Break(); // wtf?
 
-            bool useStatic = preserve; //&& _oldDrawOP != null && _oldDrawOP.IsPreserve;
             if (useStatic)
             {
                 if (_opPipeline.TryLast(out var op))
                 {
-                    //var staticBmp = op!.Bitmap;
-                    //staticBmp.IsRendering = true;
-                    //var rect = new Rect(0, 0, bounds.Width, bounds.Height);
-                    //var op = new DrawOperation(this, rect, staticBmp, frameData, true);
-                    context.Custom(op);
+                    if (op._data == frameData)
+                        context.Custom(op);
+                    else
+                        throw new InvalidOperationException();
                 }
                 else
                 {
-
+                    throw new InvalidOperationException();
                 }
             }
             else
             {
-                ReusableBitmap drawBmp;
-                drawBmp = _bitmapPool.Resolve();
+                var drawBmp = _bitmapPool.Resolve();
                 drawBmp.IsRendering = true;
                 drawBmp.Draw(frameData);
                 var rect = new Rect(0, 0, bounds.Width, bounds.Height);
-                var op = new DrawOperation(this, rect, drawBmp, frameData, preserve);
+                var op = new DrawOperation(this, rect, drawBmp, frameData);
+                op.DrawId = ++drawCount;
                 context.Custom(op);
                 _opPipeline.Enqueue(op);
             }
 
-            _oldFrameData = frameData;
             _currentFrameData = frameData;
         }
 
@@ -277,8 +268,8 @@ public class SKBitmapControlReuse : SKBitmapControl
         lastDraw = DateTime.Now;
     }
 
+    private int drawCount = 0;
     private readonly ConcurrentQueueExt<DrawOperation> _opPipeline = new();
-    private readonly ConcurrentBag<DrawOperation> _garbageOP = new();
 
     private void TryFree(DrawOperation current)
     {
@@ -295,37 +286,23 @@ public class SKBitmapControlReuse : SKBitmapControl
         }
     }
 
-    private void ClearGarbagesOP(DrawOperation current)
-    {
-        while (_garbageOP.TryTake(out var garbageOP))
-        {
-            garbageOP.Free();
-        }
-    }
-
-    private void ClaimAsGarbage(DrawOperation drawOperation)
-    {
-        _garbageOP.Add(drawOperation);
-    }
-
     public class DrawOperation : ICustomDrawOperation
     {
         private readonly SKBitmapControlReuse _host;
         private readonly Rect _bounds;
         private readonly ReusableBitmap _bmp;
-        private readonly IFrameData _data;
+        public readonly IFrameData _data;
+        private bool _isFree;
 
-        public DrawOperation(SKBitmapControlReuse host, Rect bounds, ReusableBitmap bmp, IFrameData fdata, bool preserve)
+        public DrawOperation(SKBitmapControlReuse host, Rect bounds, ReusableBitmap bmp, IFrameData fdata)
         {
             _host = host;
             _bounds = bounds;
             _bmp = bmp;
             _data = fdata;
-            IsPreserve = preserve;
         }
 
-        public bool IsPreserve { get; private set; }
-        public bool IsAlive => !IsDisposed;
+        public int DrawId { get; set; }
         public bool IsDisposed { get; private set; }
         public Rect Bounds => _bounds;
 
@@ -344,29 +321,22 @@ public class SKBitmapControlReuse : SKBitmapControl
 
         public void Dispose()
         {
-            if (IsDisposed)
-                return;
+            //if (IsDisposed)
+            //    return;
 
-            IsDisposed = true;
+            //IsDisposed = true;
 
             _host.TryFree(this);
-
-            //if (IsPreserve)
-            //{
-            //    _host.ClaimAsGarbage(this);
-            //}
-            //else
-            //{
-            //    _host.ClearGarbagesOP(this);
-            //    _host._buffer.Free(_data);
-            //}
-
             GC.SuppressFinalize(this);
         }
 
         public void Free()
         {
-            _host._buffer.Free(_data);
+            if (_isFree) 
+                return;
+
+            _isFree = true;
+            _host._framePool.Free(_data);
             _bmp.IsRendering = false;
         }
     }
@@ -415,7 +385,7 @@ public class SKBitmapControlReuse : SKBitmapControl
         }
     }
 
-    public class HardbassBuffer
+    public class FramePool
     {
         private readonly List<IFrameData> _listDraw = [];
         private readonly List<IFrameData> _listReady = [];
@@ -423,7 +393,7 @@ public class SKBitmapControlReuse : SKBitmapControl
         private readonly SKBitmapControlReuse _host;
         private readonly object _lock = new object();
 
-        public HardbassBuffer(IReusableContext reusableContext, SKBitmapControlReuse host)
+        public FramePool(IReusableContext reusableContext, SKBitmapControlReuse host)
         {
             _reusableContext = reusableContext;
             _host = host;
@@ -435,11 +405,6 @@ public class SKBitmapControlReuse : SKBitmapControl
         {
             lock (_lock)
             {
-                // todo костыть 
-                //var m = _listReady.FirstOrDefault(x => x == frame);
-                //if (m != null)
-                //    return;
-
                 _listReady.Add(frame);
             }
         }
@@ -462,46 +427,6 @@ public class SKBitmapControlReuse : SKBitmapControl
             }
         }
 
-        ///// <summary>
-        ///// Dequeue and lock frame
-        ///// </summary>
-        //public IFrameData? FetchActualAndLock()
-        //{
-        //    IFrameData? frameData;
-        //    int skip = 0;
-        //    lock (_host._lockObject)
-        //    {
-        //        switch (_readylist.Count)
-        //        {
-        //            case 0:
-        //                frameData = null;
-        //                return null;
-        //            default:
-        //                frameData = _readylist.Last();
-        //                frameData.IsLocked = true;
-        //                break;
-        //        }
-
-        //        for (int i = _readylist.Count - 1; i >= 0; i--)
-        //        {
-        //            var item = _readylist[i];
-        //            if (item.IsLocked)
-        //            {
-        //                continue;
-        //            }
-        //            else
-        //            {
-        //                _readylist.Remove(item);
-        //                _reusableContext.Recycle(item);
-        //                skip++;
-        //            }
-        //        }
-        //        Debug.WriteLine($"Skiped frames: {skip}");
-        //    }
-
-        //    return frameData;
-        //}
-
         public void Free(IFrameData data)
         {
             lock (_lock)
@@ -512,11 +437,4 @@ public class SKBitmapControlReuse : SKBitmapControl
             }
         }
     }
-}
-
-public enum BitmapRenderResult
-{
-    Success,
-    AllIsRendering,
-    AllIsFree,
 }
