@@ -217,7 +217,7 @@ public class SKBitmapControlReuse : SKBitmapControl
         using (context.PushTransform(translateMatrix * scaleMatrix))
         {
             bool useStatic = false;
-            var frameData = _framePool.FetchCarefulAndLock();
+            var frameData = _framePool.FetchActualLoseOther();
             if (frameData == null)
             {
                 frameData = _currentFrameData;
@@ -409,6 +409,81 @@ public class SKBitmapControlReuse : SKBitmapControl
             }
         }
 
+        public IFrameData? FetchActualLoseOther()
+        {
+            lock (_lock)
+            {
+                switch (_listReady.Count)
+                {
+                    // hard code for improve performance
+                    case 0:
+                        return null;
+                    case 1:
+                        var frameData1 = _listReady[0];
+
+                        frameData1.IsLocked = true;
+                        _listReady.Remove(frameData1);
+                        _listDraw.Add(frameData1);
+                        return frameData1;
+                    case 2:
+                        var f2_0 = _listReady[0];
+                        var frameData2 = _listReady[1];
+
+                        _listReady.Remove(f2_0);
+                        _reusableContext.Recycle(f2_0);
+
+                        frameData2.IsLocked = true;
+                        _listReady.Remove(frameData2);
+                        _listDraw.Add(frameData2);
+                        return frameData2;
+                    case 3:
+                        var f3_0 = _listReady[0];
+                        var f3_1 = _listReady[1];
+                        var frameData3 = _listReady[2];
+
+                        _listReady.Remove(f3_0);
+                        _reusableContext.Recycle(f3_0);
+
+                        _listReady.Remove(f3_1);
+                        _reusableContext.Recycle(f3_1);
+
+                        frameData3.IsLocked = true;
+                        _listReady.Remove(frameData3);
+                        _listDraw.Add(frameData3);
+                        return frameData3;
+                    case 4:
+                        var f4_0 = _listReady[0];
+                        var f4_1 = _listReady[1];
+                        var f4_2 = _listReady[2];
+                        var frameData4 = _listReady[3];
+                        _listReady.Remove(f4_0);
+                        _reusableContext.Recycle(f4_0);
+
+                        _listReady.Remove(f4_1);
+                        _reusableContext.Recycle(f4_1);
+
+                        frameData4.IsLocked = true;
+                        _listReady.Remove(frameData4);
+                        _listDraw.Add(frameData4);
+                        return frameData4;
+                    default:
+                        var last = _listReady.Last();
+                        last.IsLocked = true;
+                        _listReady.Remove(last);
+                        _listDraw.Add(last);
+
+                        for (int i = _listReady.Count - 1; i >= 0; i--)
+                        {
+                            var del = _listReady[i];
+                            _listReady.Remove(del);
+                            _reusableContext.Recycle(del);
+                        }
+
+                        return last;
+                }
+            }
+        }
+
         public IFrameData? FetchCarefulAndLock()
         {
             lock (_lock)
@@ -432,8 +507,15 @@ public class SKBitmapControlReuse : SKBitmapControl
             lock (_lock)
             {
                 data.IsLocked = false;
-                _listDraw.Remove(data);
-                _reusableContext.Recycle(data);
+                if (_listDraw.Remove(data))
+                {
+                    _reusableContext.Recycle(data);
+                }
+                else
+                {
+                    Debugger.Break();
+                    throw new InvalidOperationException();
+                }
             }
         }
     }

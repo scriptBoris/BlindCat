@@ -190,6 +190,7 @@ public class VideoEngine : IDisposable
         }
     }
 
+    private int frameId;
     private void Engine()
     {
         while (true)
@@ -223,6 +224,7 @@ public class VideoEngine : IDisposable
             if (frameData == null)
                 continue;
 
+            frameData.Id = ++frameId;
             _frameBuffer.Enqueue(frameData);
 
             framesCounter++;
@@ -276,18 +278,21 @@ public class VideoEngine : IDisposable
     {
         const int MAX_FRAMES = 10;
         var sw = Stopwatch.StartNew();
-        if (!_recyrclePool.TryTake(out var free))
+        FrameDataNative? free;
+        if (!_recyrclePool.TryTake(out free))
         {
+            if (_totalPool.Count > MAX_FRAMES)
+                return null;
+
             free = MakeHard(_meta, $"{_totalPool.Count + 1}");
-            _recyrclePool.Add(free);
         }
 
-        if (_totalPool.Count > MAX_FRAMES)
-        {
-            // something went wrong
-            Debugger.Break();
-            throw new InvalidOperationException("Maximum possible number of frames exceeded");
-        }
+        //if (_totalPool.Count > MAX_FRAMES)
+        //{
+        //    // something went wrong
+        //    Debugger.Break();
+        //    throw new InvalidOperationException("Maximum possible number of frames exceeded");
+        //}
 
         nint pointerFFMpegBitmap = (IntPtr)ffframe.data[0];
         Marshal.Copy(pointerFFMpegBitmap, free.Buffer, 0, free.Buffer.Length);
@@ -320,6 +325,7 @@ public class VideoEngine : IDisposable
         _recyrclePool.Add((FrameDataNative)data);
     }
 
+    [DebuggerDisplay("Id = {Id}")]
     private class FrameDataNative : IFrameData
     {
         private bool isDisposed;
@@ -334,6 +340,7 @@ public class VideoEngine : IDisposable
         public required byte[] Buffer { get; init; }
 
         public required string DebugName { get; init; }
+        public int Id { get; set; }
 
         public void Dispose()
         {
