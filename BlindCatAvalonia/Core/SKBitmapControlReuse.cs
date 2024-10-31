@@ -23,27 +23,31 @@ namespace BlindCatAvalonia.Core;
 
 public interface IReusableContext : IDisposable
 {
-    event EventHandler? ExternalDisposed;
     IntSize IntFrameSize { get; }
     Size FrameSize => new(IntFrameSize.Width, IntFrameSize.Height);
-    IFrameData? GetFrame();
-
     bool IsDisposed { get; }
-    bool DisposeAfterRender { get; set; }
-    void Recycle(IFrameData data);
+
+    // get recycle elements
+    IFrameData? GetFrame();
+    ReusableBitmap ResolveBitmap();
+
+    // free recycle elements
+    void RecycleFrame(IFrameData data);
+    void RecycleBitmap(ReusableBitmap bitmap);
 }
 
 public class SKBitmapControlReuse : SKBitmapControl
 {
+    private readonly ConcurrentQueueExt<DrawOperation> _opPipeline = new();
     private System.Drawing.PointF _offset;
     private double? _forceScale;
-    private IReusableContext? _reuseContext;
     private IFrameData? _currentFrameData;
-    private BitmapPool? _bitmapPool;
-    private FramePool? _framePool;
     private DispatcherTimer? _drawTimer;
+    private int _drawOPCount = 0;
 
     #region props
+    protected IReusableContext? ReuseContext { get; set; }
+
     public double RenderScale { get; private set; } = -1.0;
 
     public double? ForceScale
@@ -84,50 +88,38 @@ public class SKBitmapControlReuse : SKBitmapControl
 
     public void Source(IReusableContext source)
     {
-        _bitmapPool = new BitmapPool(source.IntFrameSize);
-        _framePool = new FramePool(source, this);
+        ReuseContext?.Dispose();
+        ReuseContext = source;
         Dispatcher.UIThread.Post(() =>
         {
-            _reuseContext = source;
             InvalidateMeasure();
         });
     }
 
-    public void PushFrame(IFrameData data)
+    protected virtual void DestroyReuseContext()
     {
-        _framePool.Add(data);
+
+    }
+
+    public void OnFrameReady()
+    {
+        Dispatcher.UIThread.Post(InvalidateVisual, DispatcherPriority.Background);
     }
 
     protected override void OnLoaded(RoutedEventArgs e)
     {
         base.OnLoaded(e);
         OpacityMask = new ImmutableSolidColorBrush(Colors.Gray);
-
-        _drawTimer = new DispatcherTimer(DispatcherPriority.Background);
-        _drawTimer.Interval = TimeSpan.FromMilliseconds(5);
-        _drawTimer.Tick += (s, e) =>
-        {
-            InvalidateVisual();
-        };
-        _drawTimer.Start();
     }
 
     protected override void OnUnloaded(RoutedEventArgs e)
     {
         base.OnUnloaded(e);
-        if (_reuseContext != null)
-        {
-            _reuseContext.Dispose();
-            _reuseContext = null;
-
-            _drawTimer?.Stop();
-            _drawTimer = null;
-        }
     }
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        if (_reuseContext == null)
+        if (ReuseContext == null)
         {
             return DefaultSize;
         }
@@ -137,12 +129,12 @@ public class SKBitmapControlReuse : SKBitmapControl
             return availableSize;
         }
 
-        return Stretch.CalculateSize(availableSize, _reuseContext.FrameSize, StretchDirection);
+        return Stretch.CalculateSize(availableSize, ReuseContext.FrameSize, StretchDirection);
     }
 
     protected override Size ArrangeOverride(Size finalSize)
     {
-        if (_reuseContext is null || _reuseContext.IsDisposed)
+        if (ReuseContext is null || ReuseContext.IsDisposed)
         {
             return finalSize;
         }
@@ -152,21 +144,21 @@ public class SKBitmapControlReuse : SKBitmapControl
             return finalSize;
         }
 
-        var sourceSize = _reuseContext.FrameSize;
+        var sourceSize = ReuseContext.FrameSize;
         return Stretch.CalculateSize(finalSize, sourceSize);
     }
 
     private DateTime lastDraw;
     public override void Render(DrawingContext context)
     {
-        if (_reuseContext == null || _reuseContext.IsDisposed || _bitmapPool == null || _framePool == null)
+        if (ReuseContext == null || ReuseContext.IsDisposed)
         {
             context.DrawRectangle(new SolidColorBrush(Colors.Transparent), null, Bounds, 0);
             return;
         }
 
         var viewPort = new Rect(Bounds.Size);
-        var sourceSize = _reuseContext.FrameSize;
+        var sourceSize = ReuseContext.FrameSize;
         if (sourceSize.Width <= 0 || sourceSize.Height <= 0)
         {
             return;
@@ -193,7 +185,7 @@ public class SKBitmapControlReuse : SKBitmapControl
         var sourceRect = new Rect(sourceSize)
             .CenterRect(new Rect(destRect.Size / scale));
 
-        var bounds = new Rect(0, 0, _reuseContext.IntFrameSize.Width, _reuseContext.IntFrameSize.Height);
+        var bounds = new Rect(0, 0, ReuseContext.IntFrameSize.Width, ReuseContext.IntFrameSize.Height);
         var scaleMatrix = Matrix.CreateScale(
             destRect.Width / sourceRect.Width,
             destRect.Height / sourceRect.Height);
@@ -217,7 +209,7 @@ public class SKBitmapControlReuse : SKBitmapControl
         using (context.PushTransform(translateMatrix * scaleMatrix))
         {
             bool useStatic = false;
-            var frameData = _framePool.FetchActualLoseOther();
+            var frameData = ReuseContext.GetFrame();
             if (frameData == null)
             {
                 frameData = _currentFrameData;
@@ -230,17 +222,11 @@ public class SKBitmapControlReuse : SKBitmapControl
                 return;
             }
 
-            if (_framePool.Count > 20)
-                Debugger.Break(); // wtf?
-
             if (useStatic)
             {
                 if (_opPipeline.TryLast(out var op))
                 {
-                    if (op._data == frameData)
-                        context.Custom(op);
-                    else
-                        throw new InvalidOperationException();
+                    context.Custom(op);
                 }
                 else
                 {
@@ -249,12 +235,12 @@ public class SKBitmapControlReuse : SKBitmapControl
             }
             else
             {
-                var drawBmp = _bitmapPool.Resolve();
+                var drawBmp = ReuseContext.ResolveBitmap();
                 drawBmp.IsRendering = true;
                 drawBmp.Draw(frameData);
                 var rect = new Rect(0, 0, bounds.Width, bounds.Height);
-                var op = new DrawOperation(this, rect, drawBmp, frameData);
-                op.DrawId = ++drawCount;
+                var op = new DrawOperation(this, rect, drawBmp, frameData, ReuseContext);
+                op.DrawId = ++_drawOPCount;
                 context.Custom(op);
                 _opPipeline.Enqueue(op);
             }
@@ -262,14 +248,12 @@ public class SKBitmapControlReuse : SKBitmapControl
             _currentFrameData = frameData;
         }
 
+        // FPS monitoring
         var span = DateTime.Now - lastDraw;
         var fps = 1000.0 / span.TotalMilliseconds;
         Debug.WriteLine($"FPS: {fps}");
         lastDraw = DateTime.Now;
     }
-
-    private int drawCount = 0;
-    private readonly ConcurrentQueueExt<DrawOperation> _opPipeline = new();
 
     private void TryFree(DrawOperation current)
     {
@@ -291,22 +275,21 @@ public class SKBitmapControlReuse : SKBitmapControl
         private readonly SKBitmapControlReuse _host;
         private readonly Rect _bounds;
         private readonly ReusableBitmap _bmp;
-        public readonly IFrameData _data;
+        private readonly IFrameData _data;
+        private readonly IReusableContext _reusableContext;
         private bool _isFree;
 
-        public DrawOperation(SKBitmapControlReuse host, Rect bounds, ReusableBitmap bmp, IFrameData fdata)
+        public DrawOperation(SKBitmapControlReuse host, Rect bounds, ReusableBitmap bmp, IFrameData fdata, IReusableContext reusableContext)
         {
             _host = host;
             _bounds = bounds;
             _bmp = bmp;
             _data = fdata;
+            _reusableContext = reusableContext;
         }
 
         public int DrawId { get; set; }
-        public bool IsDisposed { get; private set; }
         public Rect Bounds => _bounds;
-
-        public ReusableBitmap Bitmap => _bmp;
         public bool HitTest(Point p) => _bounds.Contains(p);
         public bool Equals(ICustomDrawOperation? other) => false;
 
@@ -321,202 +304,18 @@ public class SKBitmapControlReuse : SKBitmapControl
 
         public void Dispose()
         {
-            //if (IsDisposed)
-            //    return;
-
-            //IsDisposed = true;
-
             _host.TryFree(this);
             GC.SuppressFinalize(this);
         }
 
         public void Free()
         {
-            if (_isFree) 
+            if (_isFree)
                 return;
 
             _isFree = true;
-            _host._framePool.Free(_data);
-            _bmp.IsRendering = false;
-        }
-    }
-
-    public class BitmapPool : IDisposable
-    {
-        private readonly List<ReusableBitmap> _pool = new();
-        private readonly PixelSize pix;
-        private readonly Vector vector;
-
-        public BitmapPool(IntSize size)
-        {
-            pix = new PixelSize(size.Width, size.Height);
-            vector = new Vector(96, 96);
-            var Bmp1 = new ReusableBitmap(pix, vector, PixelFormat.Rgba8888, AlphaFormat.Opaque)
-            {
-                DebugName = "#1",
-            };
-            var Bmp2 = new ReusableBitmap(pix, vector, PixelFormat.Rgba8888, AlphaFormat.Opaque)
-            {
-                DebugName = "#2",
-            };
-            _pool.Add(Bmp1);
-            _pool.Add(Bmp2);
-        }
-
-        public void Dispose()
-        {
-        }
-
-        public ReusableBitmap Resolve()
-        {
-            ReusableBitmap? match;
-            match = _pool.FirstOrDefault(x => !x.IsRendering);
-
-            if (match == null)
-            {
-                match = new ReusableBitmap(pix, vector, PixelFormat.Rgba8888, AlphaFormat.Opaque)
-                {
-                    DebugName = $"#{_pool.Count + 1}",
-                };
-                _pool.Add(match);
-            }
-
-            return match;
-        }
-    }
-
-    public class FramePool
-    {
-        private readonly List<IFrameData> _listDraw = [];
-        private readonly List<IFrameData> _listReady = [];
-        private readonly IReusableContext _reusableContext;
-        private readonly SKBitmapControlReuse _host;
-        private readonly object _lock = new object();
-
-        public FramePool(IReusableContext reusableContext, SKBitmapControlReuse host)
-        {
-            _reusableContext = reusableContext;
-            _host = host;
-        }
-
-        public int Count => _listReady.Count;
-
-        public void Add(IFrameData frame)
-        {
-            lock (_lock)
-            {
-                _listReady.Add(frame);
-            }
-        }
-
-        public IFrameData? FetchActualLoseOther()
-        {
-            lock (_lock)
-            {
-                switch (_listReady.Count)
-                {
-                    // hard code for improve performance
-                    case 0:
-                        return null;
-                    case 1:
-                        var frameData1 = _listReady[0];
-
-                        frameData1.IsLocked = true;
-                        _listReady.Remove(frameData1);
-                        _listDraw.Add(frameData1);
-                        return frameData1;
-                    case 2:
-                        var f2_0 = _listReady[0];
-                        var frameData2 = _listReady[1];
-
-                        _listReady.Remove(f2_0);
-                        _reusableContext.Recycle(f2_0);
-
-                        frameData2.IsLocked = true;
-                        _listReady.Remove(frameData2);
-                        _listDraw.Add(frameData2);
-                        return frameData2;
-                    case 3:
-                        var f3_0 = _listReady[0];
-                        var f3_1 = _listReady[1];
-                        var frameData3 = _listReady[2];
-
-                        _listReady.Remove(f3_0);
-                        _reusableContext.Recycle(f3_0);
-
-                        _listReady.Remove(f3_1);
-                        _reusableContext.Recycle(f3_1);
-
-                        frameData3.IsLocked = true;
-                        _listReady.Remove(frameData3);
-                        _listDraw.Add(frameData3);
-                        return frameData3;
-                    case 4:
-                        var f4_0 = _listReady[0];
-                        var f4_1 = _listReady[1];
-                        var f4_2 = _listReady[2];
-                        var frameData4 = _listReady[3];
-                        _listReady.Remove(f4_0);
-                        _reusableContext.Recycle(f4_0);
-
-                        _listReady.Remove(f4_1);
-                        _reusableContext.Recycle(f4_1);
-
-                        frameData4.IsLocked = true;
-                        _listReady.Remove(frameData4);
-                        _listDraw.Add(frameData4);
-                        return frameData4;
-                    default:
-                        var last = _listReady.Last();
-                        last.IsLocked = true;
-                        _listReady.Remove(last);
-                        _listDraw.Add(last);
-
-                        for (int i = _listReady.Count - 1; i >= 0; i--)
-                        {
-                            var del = _listReady[i];
-                            _listReady.Remove(del);
-                            _reusableContext.Recycle(del);
-                        }
-
-                        return last;
-                }
-            }
-        }
-
-        public IFrameData? FetchCarefulAndLock()
-        {
-            lock (_lock)
-            {
-                switch (_listReady.Count)
-                {
-                    case 0:
-                        return null;
-                    default:
-                        var frameData = _listReady.First();
-                        frameData.IsLocked = true;
-                        _listReady.Remove(frameData);
-                        _listDraw.Add(frameData);
-                        return frameData;
-                }
-            }
-        }
-
-        public void Free(IFrameData data)
-        {
-            lock (_lock)
-            {
-                data.IsLocked = false;
-                if (_listDraw.Remove(data))
-                {
-                    _reusableContext.Recycle(data);
-                }
-                else
-                {
-                    Debugger.Break();
-                    throw new InvalidOperationException();
-                }
-            }
+            _reusableContext.RecycleFrame(_data);
+            _reusableContext.RecycleBitmap(_bmp);
         }
     }
 }

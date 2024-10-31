@@ -35,10 +35,9 @@ public class VideoEngine : IDisposable
     private bool isEndVideo;
     private int framesCounter = 0;
     private readonly object _locker = new();
+    private readonly object _timerLocker = new();
     private readonly ConcurrentBag<FrameDataNative> _recyrclePool = [];
     private readonly List<FrameDataNative> _totalPool = [];
-    //private readonly FrameDataNative frame0;
-    //private readonly FrameDataNative frame1;
 
     public event EventHandler<double>? PlayingProgressChanged;
     public event EventHandler? VideoPlayingToEnd;
@@ -154,8 +153,6 @@ public class VideoEngine : IDisposable
         timer.Stop();
     }
 
-    private readonly object _timerLocker = new();
-
     private void OnTimer(object? sender, ElapsedEventArgs e)
     {
         lock (_timerLocker)
@@ -235,33 +232,7 @@ public class VideoEngine : IDisposable
         {
             videoReader.Dispose();
             videoReader = null!;
-
-            for (int i = _frameBuffer.Count - 1; i >= 0; i--)
-                if (_frameBuffer.TryDequeue(out var bmp))
-                    bmp.Dispose();
         }
-    }
-
-    public void Dispose()
-    {
-        if (isDisposed)
-            return;
-
-        isDisposed = true;
-
-        timer.Stop();
-        timer.Dispose();
-
-        if (!isEngineRunning)
-        {
-            videoReader.Dispose();
-            videoReader = null!;
-
-            for (int i = _frameBuffer.Count - 1; i >= 0; i--)
-                if (_frameBuffer.TryDequeue(out var bmp))
-                    bmp.Dispose();
-        }
-        engine = null!;
     }
 
     private FrameDataNative FetchOrMakeFrameAbs(AVFrame ffframe)
@@ -276,42 +247,37 @@ public class VideoEngine : IDisposable
 
     private unsafe FrameDataNative? FetchOrMakeFrame(AVFrame ffframe)
     {
-        const int MAX_FRAMES = 10;
-        var sw = Stopwatch.StartNew();
-        FrameDataNative? free;
-        if (!_recyrclePool.TryTake(out free))
+        lock (_locker)
         {
-            if (_totalPool.Count > MAX_FRAMES)
-                return null;
+            const int MAX_FRAMES = 10;
+            var sw = Stopwatch.StartNew();
+            FrameDataNative? free;
+            if (!_recyrclePool.TryTake(out free))
+            {
+                if (_totalPool.Count > MAX_FRAMES)
+                    return null;
 
-            free = MakeHard(_meta, $"{_totalPool.Count + 1}");
+                free = MakeHard(_meta, $"{_totalPool.Count + 1}");
+            }
+
+            nint pointerFFMpegBitmap = (IntPtr)ffframe.data[0];
+            int length = free.Width * free.Height * free.BytesPerPixel;
+            Buffer.MemoryCopy((void*)pointerFFMpegBitmap, (void*)free.Buffer, length, length);
+            sw.StopAndCout("FetchOrMakeFrame");
+            return free;
         }
-
-        //if (_totalPool.Count > MAX_FRAMES)
-        //{
-        //    // something went wrong
-        //    Debugger.Break();
-        //    throw new InvalidOperationException("Maximum possible number of frames exceeded");
-        //}
-
-        nint pointerFFMpegBitmap = (IntPtr)ffframe.data[0];
-        Marshal.Copy(pointerFFMpegBitmap, free.Buffer, 0, free.Buffer.Length);
-        sw.StopAndCout("FetchOrMakeFrame");
-        return free;
     }
 
     private FrameDataNative MakeHard(VideoMetadata meta, string dbgname)
     {
-        byte[] dat = new byte[meta.Width * meta.Height * 4];
-        var hndl = GCHandle.Alloc(dat, GCHandleType.Pinned);
+        nint pointer = Marshal.AllocHGlobal(meta.Width * meta.Height * 4);
         var free = new FrameDataNative
         {
             Height = meta.Height,
             Width = meta.Width,
-            Pointer = hndl.AddrOfPinnedObject(),
+            Pointer = pointer,
             PixelFormat = PixelFormat.Rgba8888,
-            Handle = hndl,
-            Buffer = dat,
+            Buffer = pointer,
             DebugName = dbgname,
         };
 
@@ -322,22 +288,69 @@ public class VideoEngine : IDisposable
 
     public void Recycle(IFrameData data)
     {
-        _recyrclePool.Add((FrameDataNative)data);
+        var frame = (FrameDataNative)data;
+        if (!isDisposed)
+        {
+            _recyrclePool.Add(frame);
+        }
+        else
+        {
+            frame.Dispose();
+        }
+    }
+
+    public void Dispose()
+    {
+        lock (_locker)
+        {
+            if (isDisposed)
+                return;
+
+            isDisposed = true;
+
+            timer.Stop();
+            timer.Dispose();
+
+            if (!isEngineRunning)
+            {
+                videoReader.Dispose();
+                videoReader = null!;
+            }
+
+            foreach (var item in _totalPool)
+            {
+                if (!item.IsLocked)
+                    item.Dispose();
+            }
+            _totalPool.Clear();
+            _recyrclePool.Clear();
+            _frameBuffer.Clear();
+            engine = null!;
+            GC.SuppressFinalize(this);
+        }
     }
 
     [DebuggerDisplay("Id = {Id}")]
     private class FrameDataNative : IFrameData
     {
         private bool isDisposed;
+        private nint buffer;
 
         public bool IsLocked { get; set; }
         public int BytesPerPixel => 4;
         public required int Width { get; set; }
         public required int Height { get; set; }
-        public required nint Pointer { get; set; }
+        public required nint Pointer { get; init; }
         public required PixelFormat PixelFormat { get; set; }
-        public required GCHandle Handle { private get; set; }
-        public required byte[] Buffer { get; init; }
+
+        /// <summary>
+        /// Pointer to an array of RGBA8888 pixmaps on the heap, but out of the garbage collector's sight
+        /// </summary>
+        public required nint Buffer
+        {
+            get => buffer;
+            init => buffer = value;
+        }
 
         public required string DebugName { get; init; }
         public int Id { get; set; }
@@ -348,7 +361,11 @@ public class VideoEngine : IDisposable
                 return;
 
             isDisposed = true;
-            Handle.Free();
+            if (buffer != nint.Zero)
+            {
+                Marshal.FreeHGlobal(buffer);
+                buffer = nint.Zero;
+            }
         }
     }
 }

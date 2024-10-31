@@ -40,7 +40,6 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
 
     private double progress;
     private double progressTick;
-    private ReuseContext? reuseContext;
     private bool isDisposed;
     private SKBitmap? _currentFrame;
     private VideoEngine? videoEngine;
@@ -121,7 +120,7 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
 
         if (videoEngine != null)
         {
-            Desubscribe(videoEngine);
+            videoEngine.MayFetchFrame2 -= FetchBitmap;
             videoEngine.Dispose();
             videoEngine = null;
         }
@@ -133,6 +132,12 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
             timer.Dispose();
             timer = null;
         }
+
+        if (ReuseContext != null)
+        {
+            ReuseContext.Dispose();
+            ReuseContext = null;
+        };
 
         // new instances
         if (cachedAudioMeta != null && cachedAudioMeta.Streams.Length > 0 && cachedAudioMeta.Streams.Any(x => x.IsAudio))
@@ -154,9 +159,9 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
         if (videoEngine != null)
             inits.Add(videoEngine.Init(cancel));
 
-        if (audioEngine == null && videoEngine == null)
+        if (videoEngine == null || cachedVideoMeta == null)
         {
-            SetError("No media data");
+            SetError("No video data");
             return;
         }
 
@@ -165,17 +170,13 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
         if (cancel.IsCancellationRequested)
             return;
 
-        double rateMs = videoEngine != null ? cachedVideoMeta!.AvgFramerate : 30;
+        double rateMs = cachedVideoMeta.AvgFramerate;
         timer = new System.Timers.Timer(rateMs);
         timer.Elapsed += Timer_Elapsed;
         timer.AutoReset = true;
         progress = (Duration.TotalSeconds > 0 && startFrom.TotalSeconds > 0) ? (double)(startFrom.TotalSeconds / Duration.TotalSeconds) : 0;
         progressTick = rateMs / Duration.TotalMilliseconds;
-        reuseContext = new ReuseContext
-        {
-            IntFrameSize = new IntSize(cachedVideoMeta!.Width, cachedVideoMeta!.Height),
-            VideoEngine = videoEngine,
-        };
+        var reuseContext = new ReuseContextSkia(new IntSize(cachedVideoMeta.Width, cachedVideoMeta.Height), videoEngine);
         Source(reuseContext);
 
         if (autoStart)
@@ -202,28 +203,11 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
         PlayingProgressChanged?.Invoke(this, progress);
     }
 
-    private void Desubscribe(VideoEngine videoEngine)
-    {
-        //videoEngine.PlayingProgressChanged -= PlayingProgressChanged;
-        //videoEngine.VideoPlayingToEnd -= VideoPlayingToEnd;
-        videoEngine.MayFetchFrame2 -= FetchBitmap;
-        videoEngine.Dispose();
-
-        if (reuseContext != null) 
-        {
-            reuseContext.Dispose();
-            reuseContext = null;
-        }
-    }
-
     private void FetchBitmap(object? invoker, IFrameData frameData)
     {
-        //reuseContext?.Push(frameData);
-        PushFrame(frameData);
-        //Dispatcher.UIThread.Post(() =>
-        //{
-        //    PushFrame(frameData);
-        //}, DispatcherPriority.Render);
+        var ct = ReuseContext as ReuseContextSkia;
+        ct?.Push(frameData);
+        OnFrameReady();
     }
 
     #region media player
@@ -321,7 +305,7 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
 
             if (videoEngine != null)
             {
-                Desubscribe(videoEngine);
+                videoEngine.MayFetchFrame2 -= FetchBitmap;
                 videoEngine.Dispose();
                 videoEngine = null;
             }
@@ -338,6 +322,12 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
                 timer.Elapsed -= Timer_Elapsed;
                 timer.Dispose();
                 timer = null;
+            }
+
+            if (ReuseContext != null)
+            {
+                ReuseContext.Dispose();
+                ReuseContext = null;
             }
 
             State = MediaPlayerStates.None;
@@ -624,41 +614,274 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
         }
     }
 
-    private class ReuseContext : IReusableContext
+    private class ReuseContextSkia : IReusableContext
     {
-        private readonly ConcurrentQueue<IFrameData> _frames = new ();
+        private readonly BitmapPool _bitmapPool;
+        private readonly FramePool _framePool;
 
-        public event EventHandler? ExternalDisposed;
-
-        public IntSize IntFrameSize { get; set; }
-        public bool IsDisposed { get; private set; }
-        public bool DisposeAfterRender { get; set; }
-        public required VideoEngine VideoEngine { get; set; }
-
-        public void Dispose()
+        public ReuseContextSkia(IntSize intFrameSize, VideoEngine engine)
         {
+            _bitmapPool = new BitmapPool(intFrameSize);
+            _framePool = new FramePool(engine);
+            IntFrameSize = intFrameSize;
         }
+
+        public IntSize IntFrameSize { get; private set; }
+        public bool IsDisposed { get; private set; }
 
         public void Push(IFrameData frame)
         {
-            _frames.Enqueue(frame);
+            _framePool.Add(frame);
+        }
+
+        public void Dispose()
+        {
+            if (IsDisposed) 
+                return;
+
+            IsDisposed = true;
+            Task.Run(async () =>
+            {
+                await Task.Delay(2000);
+                _bitmapPool.Dispose();
+                _framePool.Dispose();
+            });
         }
 
         public IFrameData? GetFrame()
         {
-            if (_frames.TryDequeue(out var frame))
+            return _framePool.FetchActualLoseOther();
+        }
+
+        public ReusableBitmap ResolveBitmap()
+        {
+            return _bitmapPool.Resolve();
+        }
+
+        public void RecycleFrame(IFrameData data)
+        {
+            _framePool.Free(data);
+        }
+
+        public void RecycleBitmap(ReusableBitmap bitmap)
+        {
+            _bitmapPool.Free(bitmap);
+        }
+    }
+
+    private class BitmapPool : IDisposable
+    {
+        private readonly List<ReusableBitmap> _pool = new();
+        private readonly PixelSize _pixSize;
+        private readonly Vector _vector;
+        private bool _disposed = false;
+
+        public BitmapPool(IntSize size)
+        {
+            _pixSize = new PixelSize(size.Width, size.Height);
+            _vector = new Vector(96, 96);
+            var Bmp1 = new ReusableBitmap(_pixSize, _vector, PixelFormat.Rgba8888, AlphaFormat.Opaque)
             {
-                return frame;
+                DebugName = "#1",
+            };
+            var Bmp2 = new ReusableBitmap(_pixSize, _vector, PixelFormat.Rgba8888, AlphaFormat.Opaque)
+            {
+                DebugName = "#2",
+            };
+            _pool.Add(Bmp1);
+            _pool.Add(Bmp2);
+        }
+
+        public void Dispose()
+        {
+            if (_disposed ) 
+                return;
+
+            _disposed = true;
+            foreach (var bmp in _pool)
+            {
+                if (!bmp.IsRendering)
+                    bmp.Dispose();
             }
-            else
+            _pool.Clear();
+            GC.SuppressFinalize(this);
+        }
+
+        public ReusableBitmap Resolve()
+        {
+            ReusableBitmap? match;
+            match = _pool.FirstOrDefault(x => !x.IsRendering);
+
+            if (match == null)
             {
-                return null;
+                match = new ReusableBitmap(_pixSize, _vector, PixelFormat.Rgba8888, AlphaFormat.Opaque)
+                {
+                    DebugName = $"#{_pool.Count + 1}",
+                };
+                _pool.Add(match);
+            }
+
+            return match;
+        }
+
+        public void Free(ReusableBitmap bitmap)
+        {
+            bitmap.IsRendering = false;
+
+            if (_disposed)
+                bitmap.Dispose();
+        }
+    }
+
+    private class FramePool : IDisposable
+    {
+        private readonly List<IFrameData> _listDraw = [];
+        private readonly List<IFrameData> _listReady = [];
+        private readonly VideoEngine _videoEngine;
+        private readonly object _lock = new();
+        private bool _disposed;
+
+        public FramePool(VideoEngine videoEngine)
+        {
+            _videoEngine = videoEngine;
+        }
+
+        public int Count => _listReady.Count;
+
+        public void Add(IFrameData frame)
+        {
+            lock (_lock)
+            {
+                _listReady.Add(frame);
             }
         }
 
-        public void Recycle(IFrameData data)
+        public IFrameData? FetchActualLoseOther()
         {
-            VideoEngine.Recycle(data);
+            lock (_lock)
+            {
+                switch (_listReady.Count)
+                {
+                    // hard code for improve performance
+                    case 0:
+                        return null;
+                    case 1:
+                        var frameData1 = _listReady[0];
+
+                        frameData1.IsLocked = true;
+                        _listReady.Remove(frameData1);
+                        _listDraw.Add(frameData1);
+                        return frameData1;
+                    case 2:
+                        var f2_0 = _listReady[0];
+                        var frameData2 = _listReady[1];
+
+                        _listReady.Remove(f2_0);
+                        _videoEngine.Recycle(f2_0);
+
+                        frameData2.IsLocked = true;
+                        _listReady.Remove(frameData2);
+                        _listDraw.Add(frameData2);
+                        return frameData2;
+                    case 3:
+                        var f3_0 = _listReady[0];
+                        var f3_1 = _listReady[1];
+                        var frameData3 = _listReady[2];
+
+                        _listReady.Remove(f3_0);
+                        _videoEngine.Recycle(f3_0);
+
+                        _listReady.Remove(f3_1);
+                        _videoEngine.Recycle(f3_1);
+
+                        frameData3.IsLocked = true;
+                        _listReady.Remove(frameData3);
+                        _listDraw.Add(frameData3);
+                        return frameData3;
+                    case 4:
+                        var f4_0 = _listReady[0];
+                        var f4_1 = _listReady[1];
+                        var f4_2 = _listReady[2];
+                        var frameData4 = _listReady[3];
+
+                        _listReady.Remove(f4_0);
+                        _videoEngine.Recycle(f4_0);
+
+                        _listReady.Remove(f4_1);
+                        _videoEngine.Recycle(f4_1);
+
+                        _listReady.Remove(f4_2);
+                        _videoEngine.Recycle(f4_2);
+
+                        frameData4.IsLocked = true;
+                        _listReady.Remove(frameData4);
+                        _listDraw.Add(frameData4);
+                        return frameData4;
+                    default:
+                        var last = _listReady.Last();
+                        last.IsLocked = true;
+                        _listReady.Remove(last);
+                        _listDraw.Add(last);
+
+                        for (int i = _listReady.Count - 1; i >= 0; i--)
+                        {
+                            var del = _listReady[i];
+                            _listReady.Remove(del);
+                            _videoEngine.Recycle(del);
+                        }
+
+                        return last;
+                }
+            }
+        }
+
+        public IFrameData? FetchCarefulAndLock()
+        {
+            lock (_lock)
+            {
+                switch (_listReady.Count)
+                {
+                    case 0:
+                        return null;
+                    default:
+                        var frameData = _listReady.First();
+                        frameData.IsLocked = true;
+                        _listReady.Remove(frameData);
+                        _listDraw.Add(frameData);
+                        return frameData;
+                }
+            }
+        }
+
+        public void Free(IFrameData data)
+        {
+            lock (_lock)
+            {
+                data.IsLocked = false;
+                if (_listDraw.Remove(data))
+                {
+                    _videoEngine.Recycle(data);
+                }
+                else
+                {
+                    Debugger.Break();
+                    //throw new InvalidOperationException();
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            lock (_lock)
+            {
+                if (_disposed)
+                    return;
+
+                _disposed = true;
+                _listDraw.Clear();
+                _listReady.Clear();
+                GC.SuppressFinalize(this);
+            }
         }
     }
 }
