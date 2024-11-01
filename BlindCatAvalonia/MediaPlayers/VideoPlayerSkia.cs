@@ -28,11 +28,13 @@ using System.Drawing;
 using Avalonia;
 using Avalonia.Platform;
 using IntSize = System.Drawing.Size;
+using Avalonia.Controls;
 
 namespace BlindCatAvalonia.MediaPlayers;
 
 public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
 {
+    private readonly object _lock = new();
     private IFFMpegService _ffmpeg = null!;
     private ICrypto _crypto = null!;
     private IStorageService _storageService = null!;
@@ -47,12 +49,12 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
     private VideoMetadata? cachedVideoMeta;
     private AudioMetadata? cachedAudioMeta;
     private object? currentSource;
-    private System.Timers.Timer? timer;
-
+    private System.Timers.Timer? timerProgress;
     private MediaPlayerStates _state = MediaPlayerStates.None;
 
     /// <summary>
     /// Видео доигралось до своего конца
+    /// (всегда запускается в UI потоке)
     /// </summary>
     public event EventHandler VideoPlayingToEnd;
 
@@ -87,12 +89,16 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
         });
     }
 
-    private void SkiaFFmpegVideoPlayer_VideoPlayingToEnd(object? sender, EventArgs e)
+    private async void SkiaFFmpegVideoPlayer_VideoPlayingToEnd(object? sender, EventArgs e)
     {
-        if (currentSource == null)
+        if (currentSource == null || videoEngine == null)
             return;
 
-        UseEngine(currentSource, TimeSpan.Zero, true, CancellationToken.None).Forget();
+        if (!Dispatcher.UIThread.CheckAccess())
+            throw new InvalidOperationException("Required execution on main thread");
+
+        await SeekTo(0, CancellationToken.None);
+        Play();
     }
 
     private async Task UseEngine(object source, TimeSpan startFrom, bool autoStart, CancellationToken cancel)
@@ -125,12 +131,12 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
             videoEngine = null;
         }
 
-        if (timer != null)
+        if (timerProgress != null)
         {
-            timer.Stop();
-            timer.Elapsed -= Timer_Elapsed;
-            timer.Dispose();
-            timer = null;
+            timerProgress.Stop();
+            timerProgress.Elapsed -= TimerProgress_Elapsed;
+            timerProgress.Dispose();
+            timerProgress = null;
         }
 
         if (ReuseContext != null)
@@ -171,10 +177,10 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
             return;
 
         double rateMs = cachedVideoMeta.AvgFramerate;
-        timer = new System.Timers.Timer(rateMs);
-        timer.Elapsed += Timer_Elapsed;
-        timer.AutoReset = true;
-        progress = (Duration.TotalSeconds > 0 && startFrom.TotalSeconds > 0) ? (double)(startFrom.TotalSeconds / Duration.TotalSeconds) : 0;
+        timerProgress = new System.Timers.Timer(rateMs);
+        timerProgress.Elapsed += TimerProgress_Elapsed;
+        timerProgress.AutoReset = true;
+        CalculateProgress(startFrom);
         progressTick = rateMs / Duration.TotalMilliseconds;
         var reuseContext = new ReuseContextSkia(new IntSize(cachedVideoMeta.Width, cachedVideoMeta.Height), videoEngine);
         Source(reuseContext);
@@ -183,24 +189,35 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
         {
             videoEngine?.Run();
             audioEngine?.Run();
-            timer.Start();
+            timerProgress.Start();
             State = MediaPlayerStates.Playing;
         }
     }
 
-    private void Timer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
+    private void CalculateProgress(TimeSpan startFrom)
     {
-        progress += progressTick;
-        if (progress >= 1)
+        progress = (Duration.TotalSeconds > 0 && startFrom.TotalSeconds > 0) ? (double)(startFrom.TotalSeconds / Duration.TotalSeconds) : 0;
+    }
+
+    private void TimerProgress_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
+    {
+        lock (_lock)
         {
-            progress = 1;
-            if (sender is System.Timers.Timer self)
-                self.Stop();
+            progress += progressTick;
+            if (progress >= 1)
+            {
+                progress = 1;
+                if (sender is System.Timers.Timer self)
+                    self.Stop();
 
-            VideoPlayingToEnd.Invoke(this, EventArgs.Empty);
+                Dispatcher.UIThread.Post(() =>
+                {
+                    VideoPlayingToEnd.Invoke(this, EventArgs.Empty);
+                });
+            }
+
+            PlayingProgressChanged?.Invoke(this, progress);
         }
-
-        PlayingProgressChanged?.Invoke(this, progress);
     }
 
     private void FetchBitmap(object? invoker, IFrameData frameData)
@@ -272,7 +289,7 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
     {
         videoEngine?.Pause();
         audioEngine?.Pause();
-        timer?.Stop();
+        timerProgress?.Stop();
         State = MediaPlayerStates.Pause;
     }
 
@@ -280,7 +297,7 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
     {
         videoEngine?.Run();
         audioEngine?.Run();
-        timer?.Start();
+        timerProgress?.Start();
         State = MediaPlayerStates.Playing;
     }
 
@@ -316,12 +333,12 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
                 audioEngine = null;
             }
 
-            if (timer != null)
+            if (timerProgress != null)
             {
-                timer.Stop();
-                timer.Elapsed -= Timer_Elapsed;
-                timer.Dispose();
-                timer = null;
+                timerProgress.Stop();
+                timerProgress.Elapsed -= TimerProgress_Elapsed;
+                timerProgress.Dispose();
+                timerProgress = null;
             }
 
             if (ReuseContext != null)
@@ -340,14 +357,21 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
 
     public async Task SeekTo(double progress, CancellationToken cancellation)
     {
-        if (cachedVideoMeta == null || currentSource == null)
+        if (cachedVideoMeta == null || currentSource == null || videoEngine == null)
             return;
 
         double durationAsSeconds = Duration.TotalSeconds * progress;
-        //double durationAsSeconds = cachedVideoMeta.Duration * progress;
-        bool autoStart = (State == MediaPlayerStates.Playing);
+        var time = TimeSpan.FromSeconds(durationAsSeconds);
 
-        await UseEngine(currentSource, TimeSpan.FromSeconds(durationAsSeconds), autoStart, cancellation);
+        if (videoEngine.CanSeeking)
+        {
+            CalculateProgress(time);
+            await videoEngine.SeekTo(time, cancellation);
+        }
+        else
+        {
+            await UseEngine(currentSource, time, false, cancellation);
+        }
     }
 
     public void SetPercentPosition(double imagePosPercentX, double imagePosPercentY)
@@ -864,7 +888,8 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
                 }
                 else
                 {
-                    Debugger.Break();
+                    // todo фрейм не находится в коллекции отрисованных, что-то пошло не так?
+                    //Debugger.Break();
                     //throw new InvalidOperationException();
                 }
             }

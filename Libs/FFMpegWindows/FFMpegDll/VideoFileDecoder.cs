@@ -82,6 +82,14 @@ public sealed unsafe class VideoFileDecoder : IDisposable
         ffmpeg.avformat_close_input(&pFormatContext);
     }
 
+    public void SeekTo(TimeSpan time)
+    {
+        //double startTime = 10.0; // время в секундах
+        double startTime = time.TotalSeconds;
+        long timestamp = (long)(startTime * ffmpeg.AV_TIME_BASE);
+        ffmpeg.av_seek_frame(_pFormatContext, -1, timestamp, ffmpeg.AVSEEK_FLAG_BACKWARD);
+    }
+
     public bool TryDecodeNextFrame(out AVFrame frame)
     {
         ffmpeg.av_frame_unref(_pFrame);

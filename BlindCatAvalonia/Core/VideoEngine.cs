@@ -12,8 +12,6 @@ using FFMpegDll;
 using FFmpeg.AutoGen.Abstractions;
 using System.Runtime.InteropServices;
 using System.Collections.Generic;
-using System.Linq;
-using Avalonia;
 using IntSize = System.Drawing.Size;
 
 namespace BlindCatAvalonia.Core;
@@ -115,14 +113,24 @@ public class VideoEngine : IDisposable
 
     public TimeSpan Position { get; private set; }
     public AVHWDeviceType HWDevice { get; private set; }
+    public bool CanSeeking => true;
 
     public Task Init(CancellationToken cancel)
     {
+        if (Position.Ticks > 0)
+            return SeekTo(Position, cancel);
         //int width = _meta.Width;
         //int height = _meta.Height;
 
         //videoReader.TryDecodeNextFrame(out var frame);
         //return videoReader.Load(Position.TotalSeconds, width, height, cancel);
+        return Task.CompletedTask;
+    }
+
+    public Task SeekTo(TimeSpan position, CancellationToken cancel)
+    {
+        Position = position;
+        videoReader.SeekTo(Position);
         return Task.CompletedTask;
     }
 
