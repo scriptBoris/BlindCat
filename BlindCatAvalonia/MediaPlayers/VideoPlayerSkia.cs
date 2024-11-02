@@ -126,7 +126,7 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
 
         if (videoEngine != null)
         {
-            videoEngine.MayFetchFrame2 -= FetchBitmap;
+            videoEngine.MayFetchFrame -= FetchBitmap;
             videoEngine.Dispose();
             videoEngine = null;
         }
@@ -154,7 +154,7 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
         if (cachedVideoMeta != null && cachedVideoMeta.Streams.Length > 0 && cachedVideoMeta.Streams.Any(x => x.IsVideo))
         {
             videoEngine = new VideoEngine(videoSource, startFrom, cachedVideoMeta!, _ffmpeg.PathToFFmpegExe);
-            videoEngine.MayFetchFrame2 += FetchBitmap;
+            videoEngine.MayFetchFrame += FetchBitmap;
         }
 
         // init
@@ -228,7 +228,7 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
     }
 
     #region media player
-    public TimeSpan PlayingPosition => videoEngine?.Position ?? TimeSpan.Zero;
+    public TimeSpan PlayingPosition => progress * Duration;
     public TimeSpan Duration
     {
         get
@@ -322,7 +322,7 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
 
             if (videoEngine != null)
             {
-                videoEngine.MayFetchFrame2 -= FetchBitmap;
+                videoEngine.MayFetchFrame -= FetchBitmap;
                 videoEngine.Dispose();
                 videoEngine = null;
             }
@@ -674,6 +674,7 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
 
         public IFrameData? GetFrame()
         {
+            //return _framePool.FetchCarefulAndLock();
             return _framePool.FetchActualLoseOther();
         }
 

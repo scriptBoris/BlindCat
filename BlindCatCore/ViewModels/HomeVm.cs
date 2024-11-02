@@ -160,8 +160,11 @@ public class HomeVm : BaseVm
         if (name == null)
             return;
 
-        await _storageService.Import(name, storageDir);
-        await ShowMessage("Success", "Storage was successful imported", "OK");
+        var importRes = await _storageService.Import(name, storageDir);
+        if (importRes.IsSuccess)
+            await ShowMessage("Success", "Storage was successful imported", "OK");
+        else
+            await HandleError(importRes);
     });
 
     public ICommand CommandAddStorage => new Cmd(() =>

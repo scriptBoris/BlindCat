@@ -243,6 +243,13 @@ public class SKBitmapControlReuse : SKBitmapControl
                 op.DrawId = ++_drawOPCount;
                 context.Custom(op);
                 _opPipeline.Enqueue(op);
+
+                // DEBUG
+                var latency = DateTime.Now - frameData.DecodedAt;
+                if (latency.TotalMilliseconds > 100)
+                {
+                }
+                Debug.WriteLine($"Draw delay: {latency.TotalMilliseconds}ms");
             }
 
             _currentFrameData = frameData;
@@ -298,6 +305,13 @@ public class SKBitmapControlReuse : SKBitmapControl
             var abmp = _bmp;
             var src = new Rect(0, 0, abmp.Size.Width, abmp.Size.Height);
             var dest = new Rect(_bounds.Left, _bounds.Top, _bounds.Width, _bounds.Height);
+
+            //// DEBUG
+            //var latency = DateTime.Now - _data.DecodedAt;
+            //Debug.WriteLine($"Draw delay: {latency.TotalMilliseconds}ms");
+            //if (latency.TotalMilliseconds > 100)
+            //{
+            //}
 
             context.DrawBitmap(abmp, src, dest);
         }

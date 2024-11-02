@@ -75,7 +75,9 @@ public sealed unsafe class VideoFrameConverter : IDisposable
         var linesize = new int8();
         linesize.UpdateFrom(_dstLinesize);
         sw.Stop();
-        Debug.WriteLine($"Convert pixels: {sw.ElapsedMilliseconds}ms");
+
+        if (sw.ElapsedMilliseconds > 1)
+            Debug.WriteLine($"Convert pixels: {sw.ElapsedMilliseconds}ms");
 
         return new AVFrame
         {

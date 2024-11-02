@@ -19,27 +19,27 @@ namespace BlindCatAvalonia.Core;
 public class VideoEngine : IDisposable
 {
     private readonly int _totalFrames;
+    private readonly TimeSpan _startingTime;
     private readonly TimeSpan _pauseForFrameRate;
     private readonly TimeSpan _duration;
     private readonly VideoMetadata _meta;
     private readonly ConcurrentQueue<IFrameData> _frameBuffer = new();
     private readonly IntSize? _resize;
-    private System.Timers.Timer timer;
-    private VideoFileDecoder videoReader;
-    private Thread engine;
-    private bool isDisposed;
-    private int currentFrameNumber;
-    private bool isEngineRunning;
-    private bool isEndVideo;
-    private int framesCounter = 0;
+    private System.Timers.Timer _timerFramerate;
+    private VideoFileDecoder _videoDecoder;
+    private Thread _engineThread;
+    private bool _isDisposed;
+    private bool _isEngineRunning;
+    private bool _isEndVideo;
+    private int _framesCounter = 0;
+    private int _dropFramesCount;
+
     private readonly object _locker = new();
     private readonly object _timerLocker = new();
     private readonly ConcurrentBag<FrameDataNative> _recyrclePool = [];
     private readonly List<FrameDataNative> _totalPool = [];
 
-    public event EventHandler<double>? PlayingProgressChanged;
-    public event EventHandler? VideoPlayingToEnd;
-    public event EventHandler<IFrameData>? MayFetchFrame2;
+    public event EventHandler<IFrameData>? MayFetchFrame;
 
     public VideoEngine(object play,
         TimeSpan startFrom,
@@ -55,7 +55,7 @@ public class VideoEngine : IDisposable
         switch (play)
         {
             case string filePath:
-                videoReader = new VideoFileDecoder(filePath, FFmpeg.AutoGen.Abstractions.AVHWDeviceType.AV_HWDEVICE_TYPE_NONE);
+                _videoDecoder = new VideoFileDecoder(filePath, FFmpeg.AutoGen.Abstractions.AVHWDeviceType.AV_HWDEVICE_TYPE_NONE);
                 break;
             //case Stream stream:
             //    videoReader = new RawVideoReader(stream, pathToFFmpegExe);
@@ -68,23 +68,17 @@ public class VideoEngine : IDisposable
         };
 
         _duration = TimeSpan.FromSeconds(meta.Duration);
-        _pauseForFrameRate = TimeSpan.FromSeconds(1 / meta.AvgFramerate);
+        _pauseForFrameRate = TimeSpan.FromSeconds(1.0 / meta.AvgFramerate);
         _totalFrames = meta.PredictedFrameCount;
 
-        if (startFrom.TotalSeconds > 0)
-        {
-            double seek = startFrom.TotalSeconds;
-            currentFrameNumber = (int)((seek * meta.PredictedFrameCount) / meta.Duration);
-        }
-
-        Position = startFrom;
-        engine = new(Engine);
-        engine.Name = "Engine (ffmpeg frame reader)";
-        timer = new();
-        timer.Elapsed += OnTimer;
-        timer.Enabled = true;
-        timer.AutoReset = true;
-        timer.Interval = _pauseForFrameRate.TotalMilliseconds;
+        _startingTime = startFrom;
+        _engineThread = new(Engine);
+        _engineThread.Name = "Engine (ffmpeg frame reader)";
+        _timerFramerate = new();
+        _timerFramerate.Elapsed += OnTimerFramerate;
+        _timerFramerate.Enabled = true;
+        _timerFramerate.AutoReset = true;
+        _timerFramerate.Interval = _pauseForFrameRate.TotalMilliseconds;
 
         // make frames 1, 2
         var f1 = MakeHard(_meta, "1");
@@ -111,26 +105,35 @@ public class VideoEngine : IDisposable
         }
     }
 
-    public TimeSpan Position { get; private set; }
     public AVHWDeviceType HWDevice { get; private set; }
     public bool CanSeeking => true;
 
     public Task Init(CancellationToken cancel)
     {
-        if (Position.Ticks > 0)
-            return SeekTo(Position, cancel);
+        if (_startingTime.Ticks > 0)
+            return SeekTo(_startingTime, cancel);
+
         //int width = _meta.Width;
         //int height = _meta.Height;
-
         //videoReader.TryDecodeNextFrame(out var frame);
         //return videoReader.Load(Position.TotalSeconds, width, height, cancel);
+        bool successFrame = _videoDecoder.TryDecodeNextFrame(out var ff_frame);
+        if (successFrame)
+        {
+            var frameData = FetchOrMakeFrame(ff_frame);
+            if (frameData != null)
+            {
+                frameData.Id = ++_framesCounter;
+                _frameBuffer.Enqueue(frameData);
+            }
+        }
+
         return Task.CompletedTask;
     }
 
     public Task SeekTo(TimeSpan position, CancellationToken cancel)
     {
-        Position = position;
-        videoReader.SeekTo(Position);
+        _videoDecoder.SeekTo(position);
         return Task.CompletedTask;
     }
 
@@ -148,45 +151,30 @@ public class VideoEngine : IDisposable
         //    //bmpFree = bitmap;
         //}
 
-        if (!isEngineRunning)
+        if (!_isEngineRunning)
         {
-            isEngineRunning = true;
-            engine.Start();
+            _isEngineRunning = true;
+            _engineThread.Start();
         }
-        timer.Start();
+        _timerFramerate.Start();
     }
 
     public void Pause()
     {
-        timer.Stop();
+        _timerFramerate.Stop();
     }
 
-    private void OnTimer(object? sender, ElapsedEventArgs e)
+    private void OnTimerFramerate(object? sender, ElapsedEventArgs e)
     {
         lock (_timerLocker)
         {
             if (_frameBuffer.TryDequeue(out var frame))
             {
-                //Debug.WriteLine($"On frame time (frames: {framesCounter})");
-                currentFrameNumber++;
-                MayFetchFrame2?.Invoke(this, frame);
-
-                if (currentFrameNumber >= _totalFrames)
-                {
-                    Position = _duration;
-                    PlayingProgressChanged?.Invoke(this, 1);
-                }
-                else
-                {
-                    double progress = (double)currentFrameNumber / (double)_totalFrames;
-                    Position = _duration * progress;
-                    PlayingProgressChanged?.Invoke(this, progress);
-                }
+                MayFetchFrame?.Invoke(this, frame);
             }
-            else if (isEndVideo)
+            else if (_isEndVideo)
             {
-                timer.Stop();
-                VideoPlayingToEnd?.Invoke(this, EventArgs.Empty);
+                _timerFramerate.Stop();
             }
             else
             {
@@ -195,12 +183,11 @@ public class VideoEngine : IDisposable
         }
     }
 
-    private int frameId;
     private void Engine()
     {
         while (true)
         {
-            if (_frameBuffer.Count >= 3)
+            if (_frameBuffer.Count >= 2)
             {
                 Thread.Sleep(1);
                 continue;
@@ -208,38 +195,40 @@ public class VideoEngine : IDisposable
 
             var sw = Stopwatch.StartNew();
             var dec = Stopwatch.StartNew();
-            bool successFrame = videoReader.TryDecodeNextFrame(out var ff_frame);
+            bool successFrame = _videoDecoder.TryDecodeNextFrame(out var ff_frame);
             dec.StopAndCout("TryDecodeNextFrame");
 
-            if (isDisposed)
+            if (_isDisposed)
                 break;
 
             if (!successFrame)
             {
-                isEndVideo = true;
+                _isEndVideo = true;
                 return;
             }
 
-            if (isDisposed)
+            if (_isDisposed)
                 break;
 
             var frameData = FetchOrMakeFrame(ff_frame);
             sw.StopAndCout("Engine cycle");
 
             if (frameData == null)
+            {
+                _dropFramesCount++;
+                Debug.WriteLine($"Lose frames: {_dropFramesCount}");
                 continue;
+            }
 
-            frameData.Id = ++frameId;
+            frameData.Id = ++_framesCounter;
             _frameBuffer.Enqueue(frameData);
-
-            framesCounter++;
             //Debug.WriteLine($"Frame! {framesCounter} ({sw.ElapsedMilliseconds}ms) ({d.TotalMilliseconds}ms)");
         }
 
-        if (isDisposed)
+        if (_isDisposed)
         {
-            videoReader.Dispose();
-            videoReader = null!;
+            _videoDecoder.Dispose();
+            _videoDecoder = null!;
         }
     }
 
@@ -257,8 +246,7 @@ public class VideoEngine : IDisposable
     {
         lock (_locker)
         {
-            const int MAX_FRAMES = 10;
-            var sw = Stopwatch.StartNew();
+            const int MAX_FRAMES = 6;
             FrameDataNative? free;
             if (!_recyrclePool.TryTake(out free))
             {
@@ -271,7 +259,7 @@ public class VideoEngine : IDisposable
             nint pointerFFMpegBitmap = (IntPtr)ffframe.data[0];
             int length = free.Width * free.Height * free.BytesPerPixel;
             Buffer.MemoryCopy((void*)pointerFFMpegBitmap, (void*)free.Buffer, length, length);
-            sw.StopAndCout("FetchOrMakeFrame");
+            free.DecodedAt = DateTime.Now;
             return free;
         }
     }
@@ -297,7 +285,7 @@ public class VideoEngine : IDisposable
     public void Recycle(IFrameData data)
     {
         var frame = (FrameDataNative)data;
-        if (!isDisposed)
+        if (!_isDisposed)
         {
             _recyrclePool.Add(frame);
         }
@@ -311,18 +299,19 @@ public class VideoEngine : IDisposable
     {
         lock (_locker)
         {
-            if (isDisposed)
+            if (_isDisposed)
                 return;
 
-            isDisposed = true;
+            _isDisposed = true;
 
-            timer.Stop();
-            timer.Dispose();
+            _timerFramerate.Stop();
+            _timerFramerate.Dispose();
+            _timerFramerate = null!;
 
-            if (!isEngineRunning)
+            if (!_isEngineRunning)
             {
-                videoReader.Dispose();
-                videoReader = null!;
+                _videoDecoder.Dispose();
+                _videoDecoder = null!;
             }
 
             foreach (var item in _totalPool)
@@ -333,7 +322,7 @@ public class VideoEngine : IDisposable
             _totalPool.Clear();
             _recyrclePool.Clear();
             _frameBuffer.Clear();
-            engine = null!;
+            _engineThread = null!;
             GC.SuppressFinalize(this);
         }
     }
@@ -350,6 +339,7 @@ public class VideoEngine : IDisposable
         public required int Height { get; set; }
         public required nint Pointer { get; init; }
         public required PixelFormat PixelFormat { get; set; }
+        public DateTime DecodedAt { get; set; }
 
         /// <summary>
         /// Pointer to an array of RGBA8888 pixmaps on the heap, but out of the garbage collector's sight

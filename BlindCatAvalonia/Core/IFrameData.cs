@@ -13,6 +13,8 @@ public interface IFrameData : IDisposable
 {
     string DebugName { get; }
     bool IsLocked { get; set; }
+    DateTime DecodedAt { get; }
+
     int Width { get; }
     int BytesPerPixel { get; }
     int Height { get; }
