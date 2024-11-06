@@ -1,0 +1,77 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:local="using:BlindCatAvalonia.Views.PopupsDesktop"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:sd="using:BlindCatAvalonia.SDcontrols"
+        x:Class="BlindCatAvalonia.Views.PopupsDesktop.DialogSheetWindow"
+        x:DataType="local:DialogSheetWindow"
+        Title="DialogSheetWindow"
+        x:Name="root"
+        Width="300"
+        Background="#2b2b2b"
+        CanResize="False"
+        ExtendClientAreaToDecorationsHint="True"
+        Icon="avares://BlindCatAvalonia/Assets/avalonia-logo.ico"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        mc:Ignorable="d">
+
+    <Grid RowDefinitions="*, Auto">
+
+        <sd:StackLayout Padding="20"
+                        Spacing="10">
+            <TextBlock x:Name="labelTitle"
+                       FontSize="20"
+                       Foreground="White">
+                Title
+            </TextBlock>
+
+            <ItemsControl x:Name="itemsControl">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Margin="0,0,0,5"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Left"
+                                Command="{Binding #root.CommandClickItem}"
+                                CommandParameter="{Binding .}"
+                                Theme="{StaticResource Button}">
+                            <Grid ColumnDefinitions="24, *,5">
+                                <Canvas Grid.Column="0"
+                                        Width="24"
+                                        Height="24"
+                                        Margin="0,0,0,0">
+                                    <Path Data="M12,10A2,2 0 0,0 10,12C10,13.11 10.9,14 12,14C13.11,14 14,13.11 14,12A2,2 0 0,0 12,10Z"
+                                          Fill="{StaticResource Accent}"/>
+                                </Canvas>
+                                <TextBlock Grid.Column="1"
+                                           HorizontalAlignment="Left"
+                                           VerticalAlignment="Center"
+                                           FontWeight="SemiBold"
+                                           Text="{Binding .}"
+                                           TextWrapping="WrapWithOverflow"/>
+                            </Grid>
+
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+        </sd:StackLayout>
+
+        <Grid Grid.Row="1"
+              Background="#202020"
+              ColumnDefinitions="*,*">
+
+            <!--cancel-->
+            <Button x:Name="buttonCancel"
+                    Grid.Column="1"
+                    Margin="0,20,20,20"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    Theme="{StaticResource Button}">
+                Cancel
+            </Button>
+        </Grid>
+    </Grid>
+</Window>

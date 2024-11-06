@@ -50,6 +50,21 @@
     <Compile Update="Views\Panels\StorageFileInfoPanel.axaml.cs">
       <DependentUpon>StorageFileInfoPanel.axaml</DependentUpon>
     </Compile>
+    <Compile Update="Views\PopupsDesktop\AlertPromtWindow.axaml.cs">
+      <DependentUpon>%(Filename)</DependentUpon>
+    </Compile>
+    <Compile Update="Views\PopupsDesktop\AlertWindow.axaml.cs">
+      <DependentUpon>%(Filename)</DependentUpon>
+    </Compile>
+    <Compile Update="Views\PopupsDesktop\BasePopupWindow.axaml.cs">
+      <DependentUpon>%(Filename)</DependentUpon>
+    </Compile>
+    <Compile Update="Views\PopupsDesktop\DialogSheetWindow.axaml.cs">
+      <DependentUpon>%(Filename)</DependentUpon>
+    </Compile>
+    <Compile Update="Views\PopupsDesktop\SelectDirWindow.axaml.cs">
+      <DependentUpon>%(Filename)</DependentUpon>
+    </Compile>
   </ItemGroup>
 
 </Project>

@@ -21,7 +21,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ButtonSam.Maui", "..\Button
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BlindCatAvalonia", "BlindCatAvalonia\BlindCatAvalonia.csproj", "{A2425EAB-E329-42CB-A205-E382C5BC67A5}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BlindCatAvalonia.Desktop", "BlindCatAvalonia.Desktop\BlindCatAvalonia.Desktop.csproj", "{854C8205-46B6-41FF-AFC8-95E0897445B4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BlindCatAvalonia.Windows", "BlindCatAvalonia.Windows\BlindCatAvalonia.Windows.csproj", "{854C8205-46B6-41FF-AFC8-95E0897445B4}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{71E485BD-E621-4171-A37B-E324A7149B9F}"
 EndProject

@@ -10,7 +10,7 @@ namespace BlindCatAvalonia.Tools;
 public static class Win32Native
 {
     [DllImport("user32.dll")]
-    public static extern short GetKeyState(int nVirtKey);
+    private static extern short GetKeyState(int nVirtKey);
 
     public const int VK_CONTROL = 0x11;
     public const int VK_LCONTROL = 0xA2;
