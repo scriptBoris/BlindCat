@@ -7,7 +7,7 @@ namespace BlindCatCore.Services;
 public interface IViewPlatforms
 {
     bool AppLoading { get; }
-    IEnumerable<LoadingStrDesc> CurrentLoadings { get; }
+    IEnumerable<LoadingToken> CurrentLoadings { get; }
     object BuildView(Type? viewType, BaseVm baseVm);
     void InvokeInMainThread(Action act);
 
@@ -22,7 +22,7 @@ public interface IViewPlatforms
     ITimerCore MakeTimer();
     void Destroy(object view);
     AppResponse ShowFileOnExplorer(string filePath);
-    LoadingStrDesc UseGlobalLoading(object viewHost, string token, string? description, CancellationTokenSource? cancel);
+    void UseGlobalLoading(object viewHost, IDisposableNotify token);
 }
 
 public interface IFileResult

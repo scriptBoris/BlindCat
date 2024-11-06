@@ -14,7 +14,7 @@ namespace BlindCatCore.ExternalApi;
 /// </summary>
 public class TestBlindCatApi : IBlindCatApi
 {
-    LoadingStrDesc? IBlindCatApi.BusyContext { get; set; }
+    LoadingToken? IBlindCatApi.BusyContext { get; set; }
     private readonly HttpLauncher _httpLauncher;
 
     public TestBlindCatApi()

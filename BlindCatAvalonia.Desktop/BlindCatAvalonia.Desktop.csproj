@@ -7,10 +7,12 @@
     <Nullable>enable</Nullable>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <StartupObject>BlindCatAvalonia.Desktop.Program</StartupObject>
+    <PublishAot>True</PublishAot>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Avalonia.Desktop" Version="11.1.4" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.0" />
     <PackageReference Include="NAudio" Version="2.2.1" />
   </ItemGroup>
 

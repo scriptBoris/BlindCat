@@ -1,34 +1,34 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml;
 using Avalonia.VisualTree;
 using BlindCatAvalonia.SDcontrols.Scaffold.Utils;
 using BlindCatCore.Core;
 using BlindCatCore.Models;
 using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 
 namespace BlindCatAvalonia.SDcontrols;
 
 public partial class LoadingLayout : UserControl
 {
-    private static readonly LoadingStrDesc Default = new LoadingStrDesc()
-    {
-        ActionDispose = null,
-        Token = "default",
-        Body = null,
-        Description = null,
-        Cancellation = new(),
-    };
+    private object? _oldDataContext;
+    private List<LoadingToken> _stack = [];
 
     public LoadingLayout()
     {
         InitializeComponent();
 
         if (Design.IsDesignMode)
-            DataContext = Default;
+            DataContext = new LoadingToken()
+            {
+                Token = "default",
+                Description = null,
+                Title = null,
+                Cancellation = new(),
+            };
     }
 
     // IsVisible
@@ -41,6 +41,7 @@ public partial class LoadingLayout : UserControl
     //    set => SetValue(IsVisibleProperty, value);
     //}
 
+    #region bindable props
     // Subscribe for
     public static readonly StyledProperty<string> SubscribeForProperty = AvaloniaProperty.Register<LoadingLayout, string>(
         nameof(SubscribeFor)
@@ -72,6 +73,7 @@ public partial class LoadingLayout : UserControl
         get => GetValue(ShowLoadingAnimationProperty);
         set => SetValue(ShowLoadingAnimationProperty, value);
     }
+    #endregion bindable props
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -124,39 +126,103 @@ public partial class LoadingLayout : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        if (DataContext is BaseVm vm && SubscribeFor != null)
+
+        // old
+        if (_oldDataContext is LoadingToken oldSrc)
+        {
+            oldSrc.PropertyChanged -= LoadingStrDescPropChanged;
+        }
+        else if (_oldDataContext is BaseVm oldVm)
+        {
+            oldVm.LoadingPushed -= OnPushedLoadingToken;
+            oldVm.LoadingPoped -= OnPopedLoadingToken;
+        }
+
+        _stack.Clear();
+
+        // new
+        if (DataContext is LoadingToken newSrc)
+        {
+            newSrc.PropertyChanged += LoadingStrDescPropChanged;
+        }
+        else if (DataContext is BaseVm vm && SubscribeFor != null)
         {
             var matchToken = vm.LoadingCheck(SubscribeFor);
             if (matchToken != null)
             {
-                bool flag = matchToken.IsVisible;
-                UpdateSubscriberFor(vm, flag, matchToken);
+                PushToken(matchToken);
             }
-            vm.LoadingChanged += UpdateSubscriberFor;
+            vm.LoadingPushed += OnPushedLoadingToken;
+            vm.LoadingPoped += OnPopedLoadingToken;
+        }
+
+        var current = _stack.LastOrDefault();
+        UpdateLabelTitle(current);
+        _oldDataContext = DataContext;
+    }
+
+    private void LoadingStrDescPropChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        var token = (LoadingToken)sender!;
+
+        switch (token.Token)
+        {
+            case nameof(LoadingToken.Title):
+                UpdateLabelTitle(token);
+                break;
+            // todo реализовать description для LoadingLayout
+            //case nameof(LoadingToken.Description):
+            //    UpdateLabelTitle(token);
+            //    break;
+            default:
+                break;
         }
     }
 
-    //private void Vm_LoadingChanged(BaseVm vm, bool flag, LoadingStrDesc? token)
-    //{
-    //    if (token == SubscribeFor)
-    //    {
-    //        IsVisible = flag;
-    //        UpdateSubscriberFor(vm, flag, );
-    //    }
-    //}
-
-    private void UpdateSubscriberFor(BaseVm vm, bool flag, LoadingStrDesc? tokenDesc)
+    private void UpdateLabelTitle(LoadingToken? src)
     {
-        string? token = tokenDesc?.Token;
+        if (src != null)
+        {
+            labelTitle.Text = src.Title;
+            labelTitle.IsVisible = !string.IsNullOrEmpty(src.Title);
+        }
+        else
+        {
+            labelTitle.Text = "";
+            labelTitle.IsVisible = false;
+        }
+    }
+
+    private void OnPushedLoadingToken(BaseVm invoker, LoadingToken tokenDesc)
+    {
+        string token = tokenDesc.Token;
         if (token == SubscribeFor)
         {
-            SetDesc(tokenDesc);
-            IsVisible = flag;
+            PushToken(tokenDesc);
         }
     }
 
-    public void SetDesc(LoadingStrDesc? desc)
+    private void OnPopedLoadingToken(BaseVm invoker, LoadingToken tokenDesc)
     {
-        DataContext = desc ?? Default;
+        string token = tokenDesc.Token;
+        if (token == SubscribeFor)
+        {
+            PopToken(tokenDesc);
+        }
+    }
+
+    public void PushToken(LoadingToken desc)
+    {
+        _stack.Add(desc);
+        IsVisible = true;
+        UpdateLabelTitle(desc);
+    }
+
+    public void PopToken(LoadingToken token)
+    {
+        _stack.Remove(token);
+        var current = _stack.LastOrDefault();
+        IsVisible = current != null;
+        UpdateLabelTitle(current);
     }
 }

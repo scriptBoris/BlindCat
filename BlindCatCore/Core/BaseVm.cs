@@ -5,7 +5,7 @@ using System.Collections.ObjectModel;
 
 namespace BlindCatCore.Core;
 
-public delegate void LoadingChangedHandler(BaseVm vm, bool flag, LoadingStrDesc? token);
+public delegate void LoadingChangedHandler(BaseVm invoker, LoadingToken token);
 
 public interface IKey<T> where T : BaseVm
 {
@@ -14,12 +14,13 @@ public interface IKey<T> where T : BaseVm
 public abstract class BaseVm : BaseNotify
 {
     private readonly ObservableCollection<BaseVm> _childrens = new();
-    private readonly List<LoadingStrDesc> _tokens = [];
+    private readonly List<LoadingToken> _tokens = [];
     private readonly List<string> _manualLoadingHandlers = [];
     private int _loadingCounter = 0;
     private object? _view;
 
-    public event LoadingChangedHandler? LoadingChanged;
+    public event LoadingChangedHandler? LoadingPushed;
+    public event LoadingChangedHandler? LoadingPoped;
 
     public required IViewPlatforms ViewPlatforms { get; set; }
     public required IViewModelResolver ViewModelResolver { get; set; }
@@ -201,68 +202,76 @@ public abstract class BaseVm : BaseNotify
         return _view;
     }
 
-    public IDisposable Loading()
-    {
-        LoadingHandle(1, false);
-        var str = new LoadingStr(() => LoadingHandle(-1, false));
-        return str;
-    }
-
-    public LoadingStrDesc LoadingGlobal(string token = "default", string? description = null, CancellationTokenSource? cancel = null)
+    public IDisposableNotify LoadingGlobal(string token = "default", string? description = null, CancellationTokenSource? cancel = null)
     {
         if (_view == null)
             throw new InvalidOperationException("View has not been initialized yet");
 
-        return ViewPlatforms.UseGlobalLoading(_view, token, description, cancel);
-    }
+        _loadingCounter++;
+        IsLoading = _loadingCounter > 0;
 
-    public LoadingStrDesc Loading(string token)
-    {
-        return Loading(token, null, null);
-    }
-
-    public LoadingStrDesc Loading(string token, string? description, CancellationTokenSource? cancel)
-    {
-        var loading = new LoadingStrDesc
+        var loading = new LoadingToken
         {
-            ActionDispose = (self) =>
-            {
-                _tokens.Remove(self);
-                if (!_tokens.Contains(self))
-                {
-                    LoadingChanged?.Invoke(this, false, self);
-                }
-            },
             Token = token,
-            Description = description,
+            Title = description,
             Cancellation = cancel,
         };
-        bool isNew = !_tokens.Contains(loading);
-        _tokens.Add(loading);
+        loading.Disposed += Loading_Disposed;
+        ViewPlatforms.UseGlobalLoading(_view, loading);
 
-        if (isNew)
-            LoadingChanged?.Invoke(this, true, loading);
+        void Loading_Disposed(object? sender, EventArgs e)
+        {
+            loading.Disposed -= Loading_Disposed;
+            _loadingCounter--;
+            IsLoading = _loadingCounter > 0;
+        }
 
         return loading;
     }
 
-    private void LoadingHandle(int countAdd, bool isGlobal)
+    public IDisposableNotify Loading(string token = "default")
     {
-        _loadingCounter += countAdd;
-        IsLoading = _loadingCounter > 0;
-
-        if (!isGlobal)
-            LoadingChanged?.Invoke(this, IsLoading, null);
+        return Loading(token, null, null);
     }
 
-    public LoadingStrDesc? LoadingCheck(string token)
+    public IDisposableNotify Loading(string token, string? description, CancellationTokenSource? cancel)
+    {
+        var loading = new LoadingToken
+        {
+            Token = token,
+            Title = description,
+            Cancellation = cancel,
+        };
+
+        if (_tokens.Contains(loading))
+            throw new InvalidOperationException();
+
+        _tokens.Add(loading);
+
+        _loadingCounter++;
+        IsLoading = _loadingCounter > 0;
+        loading.Disposed += Loading_Disposed;
+
+        void Loading_Disposed(object? sender, EventArgs e)
+        {
+            loading.Disposed -= Loading_Disposed;
+            _loadingCounter--;
+            IsLoading = _loadingCounter > 0;
+            _tokens.Remove(loading);
+            LoadingPoped?.Invoke(this, loading);
+        }
+
+        LoadingPushed?.Invoke(this, loading);
+
+        return loading;
+    }
+
+    public LoadingToken? LoadingCheck(string token)
     {
         var match = _tokens.LastOrDefault(x => x.Token == token);
         if (match == null)
             return null;
 
-        int index = _tokens.IndexOf(match);
-        match.IsVisible = index == _tokens.Count - 1;
         return match;
     }
 
@@ -280,13 +289,5 @@ public abstract class BaseVm : BaseNotify
     public virtual Task<bool> TryClose()
     {
         return Task.FromResult(true);
-    }
-
-    private struct LoadingStr(Action act) : IDisposable
-    {
-        public void Dispose()
-        {
-            act();
-        }
     }
 }

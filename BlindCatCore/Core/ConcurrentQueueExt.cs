@@ -12,6 +12,8 @@ public class ConcurrentQueueExt<T>
     private readonly LinkedList<T> _items = new LinkedList<T>();
     private readonly object _syncLock = new object();
 
+    public object Locker => _syncLock;
+
     public bool IsEmpty
     {
         get

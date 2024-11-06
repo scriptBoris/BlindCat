@@ -1,6 +1,7 @@
 ﻿using FFmpeg.AutoGen.Bindings.DynamicallyLoaded;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -26,7 +27,7 @@ public static class Init
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            var current = Environment.CurrentDirectory;
+            var current = AppContext.BaseDirectory;
             var probe = Path.Combine("FFmpeg", "bin", Environment.Is64BitProcess ? "x64" : "x86");
 
             while (current != null)

@@ -8,6 +8,7 @@ using BlindCatAvalonia.Views;
 using BlindCatCore.Core;
 using BlindCatCore.Models;
 using BlindCatCore.Services;
+using DynamicData;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using System;
 using System.Collections.Generic;
@@ -15,16 +16,17 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace BlindCatAvalonia.Tools;
 
 public abstract class AvaloniaPlatform : IViewPlatforms
 {
-    protected readonly List<LoadingStrDesc> _loadings = new();
+    protected readonly List<LoadingToken> _loadings = new();
 
     public bool AppLoading => _loadings.Count > 0;
-    public IEnumerable<LoadingStrDesc> CurrentLoadings => _loadings;
+    public IEnumerable<LoadingToken> CurrentLoadings => _loadings;
 
     public object BuildView(Type? viewType, BaseVm baseVm)
     {
@@ -90,30 +92,27 @@ public abstract class AvaloniaPlatform : IViewPlatforms
         return new PlatformTimer();
     }
 
-    public LoadingStrDesc UseGlobalLoading(object viewHost, string token, string? description, CancellationTokenSource? cancel)
+    public void UseGlobalLoading(object viewHost, IDisposableNotify token)
     {
         var view = (Control)viewHost;
         var w = view.GetVisualRoot() as IWindowBusy;
 
-        var loadDesc = new LoadingStrDesc
-        {
-            Token = token,
-            ActionDispose = (self) =>
-            {
-                _loadings.Remove(self);
-            },
-            Cancellation = cancel,
-            Description = description,
-        };
+        var tokenSource = (LoadingToken)token;
+        tokenSource.Disposed += Disposed;
 
-        if (!_loadings.Contains(loadDesc))
+        void Disposed(object? invoker, EventArgs args)
         {
-            _loadings.Add(loadDesc);
-            w?.MakeLoading(loadDesc);
+            tokenSource.Disposed -= Disposed;
+            _loadings.Remove(tokenSource);
         }
 
-        return loadDesc;
+        if (!_loadings.Contains(tokenSource))
+        {
+            _loadings.Add(tokenSource);
+            w?.MakeLoading(tokenSource);
+        }
     }
+
 
     public abstract Task<string?> SelectDirectory(object? hostView);
     public abstract Task<IFileResult?> SelectMediaFile(object? hostView);

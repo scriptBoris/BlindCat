@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using FFmpeg.AutoGen.Abstractions;
@@ -17,6 +18,8 @@ public sealed unsafe class VideoFileDecoder : IDisposable
     private readonly AVFrame* _receivedFrame;
     private readonly int _streamIndex;
     private readonly VideoFrameConverter? _converter;
+    private readonly object _locker = new();
+    private bool _disposed;
 
     //public VideoFileDecoder(string filePath, AVHWDeviceType HWDeviceType = AVHWDeviceType.AV_HWDEVICE_TYPE_NONE)
     public VideoFileDecoder(string filePath, AVHWDeviceType HWDeviceType = AVHWDeviceType.AV_HWDEVICE_TYPE_DXVA2)
@@ -69,17 +72,27 @@ public sealed unsafe class VideoFileDecoder : IDisposable
 
     public void Dispose()
     {
-        var pFrame = _pFrame;
-        ffmpeg.av_frame_free(&pFrame);
+        lock (_locker)
+        {
+            if (_disposed)
+            {
+                Debugger.Break();
+                throw new ObjectDisposedException(GetType().FullName);
+            }
 
-        var pPacket = _pPacket;
-        ffmpeg.av_packet_free(&pPacket);
+            _disposed = true;
+            var pFrame = _pFrame;
+            ffmpeg.av_frame_free(&pFrame);
 
-        var pCodecContext = _pCodecContext;
-        var pFormatContext = _pFormatContext;
+            var pPacket = _pPacket;
+            ffmpeg.av_packet_free(&pPacket);
 
-        ffmpeg.avcodec_free_context(&pCodecContext);
-        ffmpeg.avformat_close_input(&pFormatContext);
+            var pCodecContext = _pCodecContext;
+            var pFormatContext = _pFormatContext;
+
+            ffmpeg.avcodec_free_context(&pCodecContext);
+            ffmpeg.avformat_close_input(&pFormatContext);
+        }
     }
 
     public void SeekTo(TimeSpan time)
@@ -92,55 +105,61 @@ public sealed unsafe class VideoFileDecoder : IDisposable
 
     public bool TryDecodeNextFrame(out AVFrame frame)
     {
-        ffmpeg.av_frame_unref(_pFrame);
-        ffmpeg.av_frame_unref(_receivedFrame);
-        int error;
-
-        do
+        lock (_locker)
         {
-            try
+            if (_disposed)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            ffmpeg.av_frame_unref(_pFrame);
+            ffmpeg.av_frame_unref(_receivedFrame);
+            int error;
+
+            do
             {
-                do
+                try
+                {
+                    do
+                    {
+                        ffmpeg.av_packet_unref(_pPacket);
+                        error = ffmpeg.av_read_frame(_pFormatContext, _pPacket);
+
+                        if (error == ffmpeg.AVERROR_EOF)
+                        {
+                            //frame = *_pFrame;
+                            frame = ResolveFrame(*_pFrame);
+                            return false;
+                        }
+
+                        error.ThrowExceptionIfError();
+                    } while (_pPacket->stream_index != _streamIndex);
+
+                    ffmpeg.avcodec_send_packet(_pCodecContext, _pPacket).ThrowExceptionIfError();
+                }
+                finally
                 {
                     ffmpeg.av_packet_unref(_pPacket);
-                    error = ffmpeg.av_read_frame(_pFormatContext, _pPacket);
+                }
 
-                    if (error == ffmpeg.AVERROR_EOF)
-                    {
-                        //frame = *_pFrame;
-                        frame = ResolveFrame(*_pFrame);
-                        return false;
-                    }
+                error = ffmpeg.avcodec_receive_frame(_pCodecContext, _pFrame);
+            } while (error == ffmpeg.AVERROR(ffmpeg.EAGAIN));
 
-                    error.ThrowExceptionIfError();
-                } while (_pPacket->stream_index != _streamIndex);
+            error.ThrowExceptionIfError();
 
-                ffmpeg.avcodec_send_packet(_pCodecContext, _pPacket).ThrowExceptionIfError();
-            }
-            finally
+            AVFrame* tframe;
+            if (_pCodecContext->hw_device_ctx != null)
             {
-                ffmpeg.av_packet_unref(_pPacket);
+                ffmpeg.av_hwframe_transfer_data(_receivedFrame, _pFrame, 0).ThrowExceptionIfError();
+                tframe = _receivedFrame;
+            }
+            else
+            {
+                tframe = _pFrame;
             }
 
-            error = ffmpeg.avcodec_receive_frame(_pCodecContext, _pFrame);
-        } while (error == ffmpeg.AVERROR(ffmpeg.EAGAIN));
+            frame = ResolveFrame(*tframe);
 
-        error.ThrowExceptionIfError();
-
-        AVFrame* tframe;
-        if (_pCodecContext->hw_device_ctx != null)
-        {
-            ffmpeg.av_hwframe_transfer_data(_receivedFrame, _pFrame, 0).ThrowExceptionIfError();
-            tframe = _receivedFrame;
+            return true;
         }
-        else
-        {
-            tframe = _pFrame;
-        }
-
-        frame = ResolveFrame(*tframe);
-
-        return true;
     }
 
     private AVFrame ResolveFrame(AVFrame frame)

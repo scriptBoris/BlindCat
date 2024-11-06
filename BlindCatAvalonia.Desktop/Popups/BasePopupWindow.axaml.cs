@@ -25,23 +25,20 @@ public partial class BasePopupWindow : Window
     {
         InitializeComponent();
 
-        vm.LoadingChanged += Vm_LoadingChanged;
+        vm.LoadingPushed += Vm_LoadingPushed;
+        vm.LoadingPoped += Vm_LoadingPoped;
 
         Title = Scaffolt.GetTitle(view);
         container.Children.Add(view);
     }
 
-    private void Vm_LoadingChanged(BaseVm vm, bool flag, BlindCatCore.Models.LoadingStrDesc? tokenDesc)
+    private void Vm_LoadingPoped(BaseVm invoker, LoadingToken token)
     {
-        string? token = tokenDesc?.Token;
+        loading.PopToken(token);
+    }
 
-        if (vm.ManualLoadings.Contains(token))
-            return;
-
-        if (flag)
-        {
-            loading.SetDesc(tokenDesc);
-        }
-        loading.IsVisible = flag;
+    private void Vm_LoadingPushed(BaseVm vm, BlindCatCore.Models.LoadingToken token)
+    {
+        loading.PushToken(token);
     }
 }

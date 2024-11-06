@@ -48,6 +48,9 @@ public static class Extensions
     public static void StopAndCout(this Stopwatch stopwatch, string label)
     {
         stopwatch.Stop();
-        Debug.WriteLine($"{label} ({stopwatch.ElapsedMilliseconds}ms) ({stopwatch.ElapsedTicks}ticks)");
+        if (stopwatch.ElapsedMilliseconds == 0)
+            Debug.WriteLine($"{label} ({stopwatch.ElapsedMilliseconds}ms) ({stopwatch.ElapsedTicks}ticks)");
+        else
+            Debug.WriteLine($"{label} ({stopwatch.ElapsedMilliseconds}ms)");
     }
 }

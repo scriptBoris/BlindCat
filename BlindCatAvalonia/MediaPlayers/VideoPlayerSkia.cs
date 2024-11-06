@@ -146,10 +146,10 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
         };
 
         // new instances
-        if (cachedAudioMeta != null && cachedAudioMeta.Streams.Length > 0 && cachedAudioMeta.Streams.Any(x => x.IsAudio))
-        {
-            audioEngine = new AudioEngine(audioSource, startFrom, cachedAudioMeta!, _audioService, _ffmpeg.PathToFFmpegExe);
-        }
+        //if (cachedAudioMeta != null && cachedAudioMeta.Streams.Length > 0 && cachedAudioMeta.Streams.Any(x => x.IsAudio))
+        //{
+        //    audioEngine = new AudioEngine(audioSource, startFrom, cachedAudioMeta!, _audioService, _ffmpeg.PathToFFmpegExe);
+        //}
 
         if (cachedVideoMeta != null && cachedVideoMeta.Streams.Length > 0 && cachedVideoMeta.Streams.Any(x => x.IsVideo))
         {
@@ -664,12 +664,8 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
                 return;
 
             IsDisposed = true;
-            Task.Run(async () =>
-            {
-                await Task.Delay(2000);
-                _bitmapPool.Dispose();
-                _framePool.Dispose();
-            });
+            _bitmapPool.Dispose();
+            _framePool.Dispose();
         }
 
         public IFrameData? GetFrame()
@@ -719,7 +715,7 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
 
         public void Dispose()
         {
-            if (_disposed ) 
+            if (_disposed) 
                 return;
 
             _disposed = true;
@@ -754,7 +750,10 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
             bitmap.IsRendering = false;
 
             if (_disposed)
+            {
+                bitmap.SkiaBitmapDetected.Reset();
                 bitmap.Dispose();
+            }
         }
     }
 
@@ -882,7 +881,6 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
         {
             lock (_lock)
             {
-                data.IsLocked = false;
                 if (_listDraw.Remove(data))
                 {
                     _videoEngine.Recycle(data);
@@ -893,6 +891,7 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
                     //Debugger.Break();
                     //throw new InvalidOperationException();
                 }
+                data.IsLocked = false;
             }
         }
 

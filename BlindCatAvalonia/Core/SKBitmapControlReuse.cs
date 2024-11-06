@@ -264,15 +264,26 @@ public class SKBitmapControlReuse : SKBitmapControl
 
     private void TryFree(DrawOperation current)
     {
-        if (_opPipeline.Count == 1)
+        lock (_opPipeline.Locker)
         {
-            // static image
-        }
-        else
-        {
-            if (_opPipeline.TryDequeue(out var op))
+            if (_opPipeline.Count == 1)
             {
-                op.Free();
+                // static image
+            }
+            else
+            {
+                if (_opPipeline.TryDequeue(out var op))
+                {
+                    if (op == current)
+                    {
+                        op.Free();
+                    }
+                    else
+                    {
+                        // something went wrong?
+                        Debugger.Break();
+                    }
+                }
             }
         }
     }
@@ -328,8 +339,8 @@ public class SKBitmapControlReuse : SKBitmapControl
                 return;
 
             _isFree = true;
-            _reusableContext.RecycleFrame(_data);
             _reusableContext.RecycleBitmap(_bmp);
+            _reusableContext.RecycleFrame(_data);
         }
     }
 }

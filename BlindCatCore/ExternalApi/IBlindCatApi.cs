@@ -17,7 +17,7 @@ public interface IBlindCatApi
     void BusyAppendNewLine(string text);
     void BusySetBody(string text);
 
-    internal LoadingStrDesc? BusyContext { get; set; }
+    internal LoadingToken? BusyContext { get; set; }
     internal void Dispose();
 }
 
@@ -85,7 +85,7 @@ internal class BlindCatApi : IBlindCatApi
         if (_loadingStrDesc != null)
             _viewPlatforms.InvokeInMainThread(() =>
             {
-                _loadingStrDesc.Body += text;
+                _loadingStrDesc.Description += text;
             });
     }
 
@@ -95,7 +95,7 @@ internal class BlindCatApi : IBlindCatApi
         if (_loadingStrDesc != null)
             _viewPlatforms.InvokeInMainThread(() =>
             {
-                _loadingStrDesc.Body += $"{text}\n";
+                _loadingStrDesc.Description += $"{text}\n";
             });
     }
 
@@ -105,12 +105,12 @@ internal class BlindCatApi : IBlindCatApi
         if (_loadingStrDesc != null)
             _viewPlatforms.InvokeInMainThread(() =>
             {
-                _loadingStrDesc.Body += text;
+                _loadingStrDesc.Description += text;
             });
     }
 
-    private LoadingStrDesc? _loadingStrDesc;
-    LoadingStrDesc? IBlindCatApi.BusyContext
+    private LoadingToken? _loadingStrDesc;
+    LoadingToken? IBlindCatApi.BusyContext
     {
         get => _loadingStrDesc;
         set => _loadingStrDesc = value;

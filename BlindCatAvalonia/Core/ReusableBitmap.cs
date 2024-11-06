@@ -49,7 +49,31 @@ public class ReusableBitmap : WriteableBitmap
             return;
         }
 
+        if (_pixmap != null)
+        {
+            _pixmap.Parent = null;
+        }
+
         _pixmap = data;
-        SkiaBitmapDetected.SetPixels(data.Pointer);
+        data.Parent = this;
+        var info = new SKImageInfo(data.Width, data.Height, SKColorType.Rgba8888);
+        SkiaBitmapDetected.InstallPixels(info, data.Pointer);
+        //SkiaBitmapDetected.SetPixels(data.Pointer);
+
+        //var rect = new PixelRect(0,0, data.Width, data.Height);
+        //int size = data.Width * data.Height * data.BytesPerPixel;
+        //int stride = data.Width * data.BytesPerPixel;
+        //this.CopyPixels(rect, data.Pointer, size, stride);
+    }
+
+    public override void Dispose()
+    {
+        Debug.WriteLine($"ReusableBitmap trying disposing ({DebugName})");
+        base.Dispose();
+        if (_pixmap != null && !_pixmap.IsDisposed)
+        {
+            _pixmap.Dispose();
+        }
+        Debug.WriteLine($"ReusableBitmap is disposed ({DebugName})");
     }
 }

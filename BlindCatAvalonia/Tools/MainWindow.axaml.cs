@@ -85,17 +85,17 @@ public partial class MainWindow : Window, IWindowBusy
         return str;
     }
 
-    public void MakeLoading(LoadingStrDesc loading)
+    public void MakeLoading(LoadingToken loading)
     {
         loadingCounter++;
         loading.Disposed += Loading_Disposed;
-        absLoading.SetDesc(loading);
+        absLoading.PushToken(loading);
         UpdateLoadingAndFade();
     }
 
     private void Loading_Disposed(object? sender, EventArgs e)
     {
-        var loading = (LoadingStrDesc)sender!;
+        var loading = (LoadingToken)sender!;
         loadingCounter--;
         UpdateLoadingAndFade();
         loading.Disposed -= Loading_Disposed;

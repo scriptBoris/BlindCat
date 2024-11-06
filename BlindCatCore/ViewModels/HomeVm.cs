@@ -181,7 +181,7 @@ public class HomeVm : BaseVm
         try
         {
             api = _pluginHost.MakePublicApi(plugin, this, cancel.Token);
-            api.BusyContext = busy;
+            api.BusyContext = (LoadingToken)busy;
             await plugin.OnActivated(api, cancel.Token);
         }
         catch (Exception ex)

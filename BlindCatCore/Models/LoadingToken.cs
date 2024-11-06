@@ -4,43 +4,30 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace BlindCatCore.Models;
 
-public class LoadingStrDesc : IDisposable, INotifyPropertyChanged
+public class LoadingToken : IDisposableNotify, INotifyPropertyChanged
 {
     private bool isDisposed;
-    private string? _body;
 
-    public event EventHandler<string?>? BodyChanged;
     public event PropertyChangedEventHandler? PropertyChanged;
     public event EventHandler? Disposed;
+    public event EventHandler? Disposing;
 
-    public required Action<LoadingStrDesc> ActionDispose { private get; init; }
     public required string Token { get; init; }
 
     /// <summary>
     /// aka Title
     /// </summary>
-    public string? Description { get; init; }
+    public string? Title { get; set; }
+
+    /// <summary>
+    /// text under Title
+    /// </summary>
+    public string? Description { get; set; }
 
     /// <summary>
     /// For cancel button (if this value is not null)
     /// </summary>
     public CancellationTokenSource? Cancellation { get; init; }
-
-    public bool IsVisible { get; set; }
-
-    /// <summary>
-    /// text under Description
-    /// </summary>
-    public string? Body
-    {
-        get => _body;
-        set
-        {
-            _body = value;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Body)));
-            BodyChanged?.Invoke(this, value);
-        }
-    }
 
     public override int GetHashCode()
     {
@@ -49,7 +36,7 @@ public class LoadingStrDesc : IDisposable, INotifyPropertyChanged
 
     public override bool Equals([NotNullWhen(true)] object? obj)
     {
-        if (obj is LoadingStrDesc other)
+        if (obj is LoadingToken other)
         {
             return this.Token == other.Token;
         }
@@ -61,8 +48,9 @@ public class LoadingStrDesc : IDisposable, INotifyPropertyChanged
         if (isDisposed)
             return;
 
+        Disposing?.Invoke(this, EventArgs.Empty);
         isDisposed = true;
         Disposed?.Invoke(this, EventArgs.Empty);
-        ActionDispose(this);
+        GC.SuppressFinalize(this);
     }
 }

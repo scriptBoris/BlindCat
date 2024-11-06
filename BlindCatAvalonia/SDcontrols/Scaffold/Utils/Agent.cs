@@ -38,7 +38,8 @@ public class Agent : Panel
 
         if (content.DataContext is BaseVm vm)
         {
-            vm.LoadingChanged += Vm_LoadingChanged;
+            vm.LoadingPushed += Vm_LoadingPushed;
+            vm.LoadingPoped += Vm_LoadingPoped;
         }
     }
 
@@ -135,6 +136,16 @@ public class Agent : Panel
         }
     }
 
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        if (_content.DataContext is BaseVm vm)
+        {
+            vm.LoadingPushed -= Vm_LoadingPushed;
+            vm.LoadingPoped -= Vm_LoadingPoped;
+        }
+    }
+
     public void UpdateHasNavBar(AgentArgs args)
     {
         bool old = _navBar != null;
@@ -161,29 +172,31 @@ public class Agent : Panel
         }
     }
 
-    private void Vm_LoadingChanged(BaseVm vm, bool flag, LoadingStrDesc? tokenDesc)
+    private void Vm_LoadingPushed(BaseVm vm, LoadingToken tokenDesc)
     {
-        string? token = tokenDesc?.Token;
+        string token = tokenDesc.Token;
+
         // ignore manual tokens
         if (vm.ManualLoadings.Contains(token))
             return;
 
-        if (flag)
+        if (overlayLoading == null)
         {
-            if (overlayLoading == null)
-            {
-                overlayLoading = new LoadingLayout();
-                Children.Add(overlayLoading);
-            }
+            overlayLoading = new LoadingLayout();
+            Children.Add(overlayLoading);
         }
 
-        if (overlayLoading != null)
-        {
-            if (flag)
-            {
-                overlayLoading.SetDesc(tokenDesc);
-            }
-            overlayLoading.IsVisible = flag;
-        }
+        overlayLoading.PushToken(tokenDesc);
+    }
+
+    private void Vm_LoadingPoped(BaseVm vm, LoadingToken tokenDesc)
+    {
+        string token = tokenDesc.Token;
+
+        // ignore manual tokens
+        if (vm.ManualLoadings.Contains(token))
+            return;
+
+        overlayLoading?.PopToken(tokenDesc);
     }
 }

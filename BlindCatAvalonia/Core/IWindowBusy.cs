@@ -11,5 +11,5 @@ namespace BlindCatAvalonia.Core;
 public interface IWindowBusy
 {
     IDisposable MakeFade();
-    void MakeLoading(LoadingStrDesc loadingDescription);
+    void MakeLoading(LoadingToken loadingDescription);
 }
