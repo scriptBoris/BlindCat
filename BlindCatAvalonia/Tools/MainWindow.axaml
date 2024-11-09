@@ -4,7 +4,6 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:sd="using:BlindCatAvalonia.SDcontrols"
         xmlns:views="clr-namespace:BlindCatAvalonia.Views"
-        xmlns:vm="using:BlindCatAvalonia.ViewModels"
         x:Class="BlindCatAvalonia.Views.MainWindow"
         Title="BlindCat"
         Width="950"

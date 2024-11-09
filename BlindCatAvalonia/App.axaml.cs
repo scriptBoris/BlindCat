@@ -24,10 +24,10 @@ namespace BlindCatAvalonia;
 
 public partial class App : Application
 {
-    private INavigationService navigation = null!;
-
+    private INavigationService _navigation = null!;
+    private static IKeyboardNative _keyboard = null!;
     public static event EventHandler<bool>? OnButtonCtrl;
-    public static bool IsButtonCtrlPressed => Win32Native.IsCtrlPressed();
+    public static bool IsButtonCtrlPressed => _keyboard.IsCtrlPressed;
     public static bool IsButtonLeftMousePressed { get; private set; }
 
     public static ServiceCollection Services { get; private set; } = new();
@@ -53,11 +53,12 @@ public partial class App : Application
         ServiceProvider = Services.BuildServiceProvider();
         var resolver = ServiceProvider.GetRequiredService<IViewModelResolver>();
         var appEnv = ServiceProvider.GetRequiredService<IAppEnv>();
-        navigation = ServiceProvider.GetRequiredService<INavigationService>();
-
+        _navigation = ServiceProvider.GetRequiredService<INavigationService>();
+        _keyboard = ServiceProvider.GetService<IKeyboardNative>() ?? new KeyboardDefault();
+        
         var vm = resolver.Resolve(new HomeVm.Key { });
-        navigation.UseRootView(vm.View, false);
-        var root = (Control)navigation.MainPage;
+        _navigation.UseRootView(vm.View, false);
+        var root = (Control)_navigation.MainPage;
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
@@ -214,7 +215,7 @@ public partial class App : Application
         if (w is MainWindow)
         {
             var app = App.Current as App;
-            return app.navigation.CurrentView.ResolveVm();
+            return app._navigation.CurrentView.ResolveVm();
         }
         else if (w.DataContext is BaseVm vm)
         {
@@ -248,7 +249,7 @@ public partial class App : Application
         if (w is MainWindow)
         {
             var app = App.Current as App;
-            app?.navigation.CurrentView.ResolveVm().OnKeyComboListener(arg);
+            app?._navigation.CurrentView.ResolveVm().OnKeyComboListener(arg);
         }
         else if (w.DataContext is BaseVm vm)
         {

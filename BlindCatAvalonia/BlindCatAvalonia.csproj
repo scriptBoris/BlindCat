@@ -65,6 +65,7 @@
     <Compile Update="Views\PopupsDesktop\SelectDirWindow.axaml.cs">
       <DependentUpon>%(Filename)</DependentUpon>
     </Compile>
+    <Compile Remove="Tools\Win32Native.cs" />
   </ItemGroup>
 
 </Project>

@@ -39,6 +39,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FFmpeg.AutoGen.Bindings.Sta
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FFMpegDll", "Libs\FFMpegWindows\FFMpegDll\FFMpegDll.csproj", "{279DA1F1-F707-411E-BEAF-3A487AB18498}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlindCatAvalonia.Linux", "BlindCatAvalonia.Linux\BlindCatAvalonia.Linux.csproj", "{7317B080-823B-47D7-B034-5A392EB12A7E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -103,6 +105,10 @@ Global
 		{279DA1F1-F707-411E-BEAF-3A487AB18498}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{279DA1F1-F707-411E-BEAF-3A487AB18498}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{279DA1F1-F707-411E-BEAF-3A487AB18498}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7317B080-823B-47D7-B034-5A392EB12A7E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7317B080-823B-47D7-B034-5A392EB12A7E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7317B080-823B-47D7-B034-5A392EB12A7E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7317B080-823B-47D7-B034-5A392EB12A7E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

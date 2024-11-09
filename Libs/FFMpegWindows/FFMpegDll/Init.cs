@@ -23,30 +23,40 @@ public static class Init
         }
     }
 
-    public static void RegisterFFmpegBinaries()
+    private static void RegisterFFmpegBinaries()
     {
+        string bitness = Environment.Is64BitProcess ? "x64" : "x86";
+        string current = AppContext.BaseDirectory;
+        string dir;
+        bool useDirectDir;
+
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            var current = AppContext.BaseDirectory;
-            var probe = Path.Combine("FFmpeg", "bin", Environment.Is64BitProcess ? "x64" : "x86");
-
-            while (current != null)
-            {
-                var ffmpegBinaryPath = Path.Combine(current, probe);
-
-                if (Directory.Exists(ffmpegBinaryPath))
-                {
-                    Console.WriteLine($"FFmpeg binaries found in: {ffmpegBinaryPath}");
-                    DynamicallyLoadedBindings.LibrariesPath = ffmpegBinaryPath;
-                    return;
-                }
-
-                current = Directory.GetParent(current)?.FullName;
-            }
+            dir = "win";
+            useDirectDir = true;
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            dir = "linux";
+            useDirectDir = false;
         }
         else
+        {
             throw new NotSupportedException(); // fell free add support for platform of your choose
+        }
 
-        throw new InvalidDataException("No match ffmpeg dll files");
+        if (!useDirectDir)
+            return;
+        
+        string probe = Path.Combine(current, "FFmpeg", $"{dir}-{bitness}");
+
+        if (Directory.Exists(probe))
+        {
+            DynamicallyLoadedBindings.LibrariesPath = probe;
+        }
+        else
+        {
+            throw new InvalidDataException("No match ffmpeg dll files");
+        }
     }
 }
