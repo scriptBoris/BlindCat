@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace BlindCatData.Migrations
 {
-    [DbContext(typeof(MauiDbContext))]
+    [DbContext(typeof(BlindCatDbContext))]
     partial class MauiDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)

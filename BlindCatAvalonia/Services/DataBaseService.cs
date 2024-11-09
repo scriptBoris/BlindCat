@@ -106,7 +106,7 @@ public class DataBaseService : IDataBaseService
 
     public async Task<AppResponse> AddContent(string dbPath, string? password, StorageFile file, Func<Task<AppResponse>> body)
     {
-        using var db = MauiDbContext.JustConnect(dbPath);
+        using var db = BlindCatDbContext.JustConnect(dbPath);
         using var transaction = await db.Database.BeginTransactionAsync();
         try
         {
@@ -158,7 +158,7 @@ public class DataBaseService : IDataBaseService
 
     public async Task<AppResponse> UpdateContent(string dataBasePath, string password, StorageFile file)
     {
-        using var db = new MauiDbContext(dataBasePath);
+        using var db = new BlindCatDbContext(dataBasePath);
         var match = await db.Contents.FindAsync(file.Guid);
         if (match == null)
         {
@@ -180,7 +180,7 @@ public class DataBaseService : IDataBaseService
             return AppResponse.Error("Invalid password db");
         }
 
-        using var db = new MauiDbContext(dataBasePath);
+        using var db = new BlindCatDbContext(dataBasePath);
         var match = await db.Contents.FindAsync(fileGuid);
         if (match == null)
         {
@@ -200,7 +200,7 @@ public class DataBaseService : IDataBaseService
             return AppResponse.Error("Invalid password db");
         }
 
-        using var db = new MauiDbContext(dataBasePath);
+        using var db = new BlindCatDbContext(dataBasePath);
         using var transaction = await db.Database.BeginTransactionAsync();
         try
         {
@@ -235,7 +235,7 @@ public class DataBaseService : IDataBaseService
         if (!Path.Exists(pathIndex))
             return true;
 
-        using var db = new MauiDbContext(pathIndex);
+        using var db = new BlindCatDbContext(pathIndex);
         var metaKey = await db.Meta.FirstOrDefaultAsync();
         if (metaKey == null)
             return false;
@@ -262,7 +262,7 @@ public class DataBaseService : IDataBaseService
 
     public async Task<AppResponse> CreateIndexStorage(StorageDir cell, string? password)
     {
-        using var db = new MauiDbContext(cell.PathIndex);
+        using var db = new BlindCatDbContext(cell.PathIndex);
         var metaKey1 = await db.Meta.FirstOrDefaultAsync();
         if (metaKey1 != null)
             return AppResponse.Error("Index db already has been initialized (Meta.MGE_jtov)");
@@ -317,7 +317,7 @@ public class DataBaseService : IDataBaseService
         if (!File.Exists(pathIndex))
             return AppResponse.Error("DB index file is not exists", 40023);
 
-        using var db = new MauiDbContext(pathIndex);
+        using var db = new BlindCatDbContext(pathIndex);
         var res = await GetFilesInternal(pathIndex, password, db, cancel);
         if (res.IsFault)
             return res.AsError;
@@ -347,7 +347,7 @@ public class DataBaseService : IDataBaseService
         return AppResponse.Result(res.Result.AppItems);
     }
 
-    private async Task<AppResponse<ItemsBundle>> GetFilesInternal(string pathIndex, string? password, MauiDbContext db, CancellationToken cancel)
+    private async Task<AppResponse<ItemsBundle>> GetFilesInternal(string pathIndex, string? password, BlindCatDbContext db, CancellationToken cancel)
     {
         string? pathDir = Path.GetDirectoryName(pathIndex);
         if (pathDir == null)
@@ -394,7 +394,7 @@ public class DataBaseService : IDataBaseService
 
     public async Task<AppResponse<string>> CheckMetaKeyExist(string pathIndex, string keyName)
     {
-        using var db = MauiDbContext.JustConnect(pathIndex);
+        using var db = BlindCatDbContext.JustConnect(pathIndex);
         var m = await db.Meta.FirstOrDefaultAsync(x => x.Key == keyName);
         if (m == null)
             return AppResponse.Error($"No match key {keyName}");
@@ -415,7 +415,7 @@ public class DataBaseService : IDataBaseService
         if (!isValid)
             return AppResponse.Error("Incorrect password");
 
-        using var db = MauiDbContext.JustConnect(dataBasePath);
+        using var db = BlindCatDbContext.JustConnect(dataBasePath);
         var res = await GetFilesInternal(dataBasePath, null, db, CancellationToken.None);
         if (res.IsFault)
             return res.AsError;
@@ -450,7 +450,7 @@ public class DataBaseService : IDataBaseService
         if (!isValid)
             return AppResponse.Error("Incorrect password");
 
-        using var db = MauiDbContext.JustConnect(dataBasePath);
+        using var db = BlindCatDbContext.JustConnect(dataBasePath);
         var res = await GetFilesInternal(dataBasePath, password, db, CancellationToken.None);
         if (res.IsFault)
             return res.AsError;

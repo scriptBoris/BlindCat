@@ -51,7 +51,8 @@ class Program
             .AddScoped<ICrypto, DesktopCrypto>()
             .AddScoped<IConfig, FileConfig>()
             .AddScoped<IFFMpegService, FFMpegProcessorService>()
-            .AddScoped<IAudioService, WindowsAudio>();
+            .AddScoped<IAudioService, WindowsAudio>()
+            .AddScoped<IKeyboardNative, KeyboardWin32>();
     }
 
     private static void ServicesDI_Designer(string[] args)

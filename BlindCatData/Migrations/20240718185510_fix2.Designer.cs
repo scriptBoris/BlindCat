@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace BlindCatData.Migrations
 {
-    [DbContext(typeof(MauiDbContext))]
+    [DbContext(typeof(BlindCatDbContext))]
     [Migration("20240718185510_fix2")]
     partial class fix2
     {

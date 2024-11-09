@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace BlindCatData.Migrations
 {
-    [DbContext(typeof(MauiDbContext))]
+    [DbContext(typeof(BlindCatDbContext))]
     [Migration("20240717184652_InitialCreate")]
     partial class InitialCreate
     {

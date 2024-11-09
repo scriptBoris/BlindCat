@@ -8,7 +8,6 @@
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <StartupObject>BlindCatAvalonia.Windows.Program</StartupObject>
-    <PublishAot>True</PublishAot>
   </PropertyGroup>
 
   <ItemGroup>
