@@ -7,6 +7,7 @@ namespace BlindCatCore.Services;
 public interface IViewPlatforms
 {
     bool AppLoading { get; }
+    IClipboard Clipboard { get; }
     IEnumerable<LoadingToken> CurrentLoadings { get; }
     object BuildView(Type? viewType, BaseVm baseVm);
     void InvokeInMainThread(Action act);
@@ -19,6 +20,8 @@ public interface IViewPlatforms
     Task<string?> ShowDialogPromtPassword(string title, string message, string OK, string cancel, string placeholder, object? hostView);
     Task<IFileResult?> SelectMediaFile(object? hostView);
     Task<string?> SelectDirectory(object? hostView);
+    Task<string?> SaveTo(string? defaultFileName, string? defaultDirectory);
+
     ITimerCore MakeTimer();
     void Destroy(object view);
     AppResponse ShowFileOnExplorer(string filePath);
@@ -29,4 +32,10 @@ public interface IFileResult
 {
     public string Path { get; }
     public Stream Stream { get; }
+}
+
+public interface IClipboard
+{
+    Task SetImage(object imageBitmap);
+    void SetText(string text);
 }

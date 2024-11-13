@@ -22,6 +22,7 @@ public abstract class PlatformAvalonia: IViewPlatforms
 
     public bool AppLoading => _loadings.Count > 0;
     public IEnumerable<LoadingToken> CurrentLoadings => _loadings;
+    public abstract IClipboard Clipboard { get; }
 
     public object BuildView(Type? viewType, BaseVm baseVm)
     {
@@ -117,6 +118,7 @@ public abstract class PlatformAvalonia: IViewPlatforms
     public abstract Task<string?> ShowDialogSheet(string title, string cancel, string[] items, object? hostView);
     public abstract Task<int?> ShowDialogSheetId(string title, string cancel, string[] items, object? hostView);
     public abstract AppResponse ShowFileOnExplorer(string filePath);
+    public abstract Task<string?> SaveTo(string? defaultFileName, string? defaultDirectory);
 
     private class PlatformTimer : ITimerCore
     {

@@ -3,6 +3,7 @@ using BlindCatCore.Core;
 using BlindCatCore.Enums;
 using BlindCatCore.Models;
 using BlindCatCore.Services;
+using PropertyChanged;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Windows.Input;
@@ -70,6 +71,9 @@ public class MediaPresentVm : BaseVm, IFileUnlocker
     public override string[] ManualLoadings { get; } = [playerLoading];
     public ReadOnlyObservableCollection<MPButtonContext> TopButtons { get; private set; }
     public string? DirName => Controller.Title;
+
+    [DependsOn(nameof(CurrentFile))]
+    public bool IsEncryptedFile => CurrentFile is StorageFile;
 
     #region commands
     public ICommand CommandNext { get; set; }

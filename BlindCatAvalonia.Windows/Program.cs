@@ -46,7 +46,7 @@ class Program
     {
         App.Services
             .AddSingleton<IAppEnv>(new AppEnv { AppLaunchedArgs = args.FirstOrDefault() })
-            .AddScoped<IViewPlatforms, DesktopPlatform>()
+            .AddScoped<IViewPlatforms, WindowsPlatform>()
             .AddScoped<INavigationService, DesktopNavigation>()
             .AddScoped<ICrypto, DesktopCrypto>()
             .AddScoped<IConfig, FileConfig>()
@@ -59,7 +59,7 @@ class Program
     {
         App.Services
             .AddSingleton<IAppEnv>(new AppEnv { AppLaunchedArgs = "" })
-            .AddScoped<IViewPlatforms, DesktopPlatform>()
+            .AddScoped<IViewPlatforms, WindowsPlatform>()
             .AddScoped<INavigationService, DesignNavigationService>()
             .AddScoped<ICrypto, DesktopCrypto>()
             .AddScoped<IConfig, FileConfig>()

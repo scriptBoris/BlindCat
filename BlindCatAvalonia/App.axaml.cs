@@ -32,6 +32,7 @@ public partial class App : Application
 
     public static ServiceCollection Services { get; private set; } = new();
     public static ServiceProvider ServiceProvider { get; private set; } = null!;
+    public static new App Current => (App)Application.Current!;
 
     public override void Initialize()
     {

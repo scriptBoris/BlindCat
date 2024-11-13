@@ -7,6 +7,7 @@
       xmlns:vm="using:BlindCatCore.ViewModels"
       x:Class="BlindCatAvalonia.MediaPresentView"
       x:DataType="vm:MediaPresentVm"
+      x:Name="root"
       d:DesignHeight="450"
       d:DesignWidth="600"
       sd:Scaffolt.BackgroundNavigationBar="Transparent"
@@ -21,11 +22,35 @@
     <mp:ImageSkia x:Name="imageSkia"
                   HorizontalAlignment="Stretch"
                   VerticalAlignment="Stretch"
-                  IsVisible="False"/>
+                  IsVisible="False">
+        <mp:ImageSkia.ContextMenu>
+            <ContextMenu>
+                <!--Copy-->
+                <MenuItem Command="{Binding #root.CommandCopyImage}"
+                          Header="Copy image"/>
+                <MenuItem Command="{Binding #root.CommandCopyPath}"
+                          Header="Copy as path"/>
+                <MenuItem Command="{Binding #root.CommandExport}"
+                          Header="Export"
+                          IsVisible="{Binding IsEncryptedFile}"/>
+            </ContextMenu>
+        </mp:ImageSkia.ContextMenu>
+    </mp:ImageSkia>
 
     <!--players: video-->
     <mp:VideoPlayerSkia x:Name="videoPlayerSkia"
-                        IsVisible="False"/>
+                        IsVisible="False">
+        <mp:VideoPlayerSkia.ContextMenu>
+            <ContextMenu>
+                <!--Copy-->
+                <MenuItem Command="{Binding #root.CommandCopyPath}"
+                          Header="Copy as path"/>
+                <MenuItem Command="{Binding #root.CommandExport}"
+                          Header="Export"
+                          IsVisible="{Binding IsEncryptedFile}"/>
+            </ContextMenu>
+        </mp:VideoPlayerSkia.ContextMenu>
+    </mp:VideoPlayerSkia>
 
     <!--right panel-->
     <ContentControl Grid.Column="1"

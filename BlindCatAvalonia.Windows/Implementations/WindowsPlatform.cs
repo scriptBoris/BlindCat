@@ -1,4 +1,6 @@
-﻿using Avalonia.Controls.ApplicationLifetimes;
+﻿using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Platform.Storage;
 using BlindCatAvalonia.Core;
 using BlindCatAvalonia.Tools;
 using BlindCatCore.Core;
@@ -13,8 +15,28 @@ using System.Threading.Tasks;
 
 namespace BlindCatAvalonia.Windows.Implementations;
 
-public class DesktopPlatform : PlatformAvaloniaDesktop
+public class WindowsPlatform : PlatformAvaloniaDesktop
 {
+    public override IClipboard Clipboard { get; } = new WindowsClipboard();
+
+    public override async Task<string?> SaveTo(string? defaultFileName, string? defaultDirectory)
+    {
+        var classic = (IClassicDesktopStyleApplicationLifetime)App.Current.ApplicationLifetime!;
+
+        var opt = new FilePickerSaveOptions
+        {
+            SuggestedFileName = defaultFileName,
+        };
+
+        var f = await classic.MainWindow.StorageProvider.SaveFilePickerAsync(opt);
+        if (f is null)
+        {
+            return null;
+        }
+
+        return f.Path.AbsolutePath;
+    }
+
     public override AppResponse ShowFileOnExplorer(string filePath)
     {
         if (!File.Exists(filePath))

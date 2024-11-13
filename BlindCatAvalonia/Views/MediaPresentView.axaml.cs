@@ -5,20 +5,26 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.Platform;
 using Avalonia.Threading;
+using BlindCatAvalonia.MediaPlayers;
 using BlindCatAvalonia.SDcontrols;
 using BlindCatAvalonia.Tools;
 using BlindCatCore.Core;
 using BlindCatCore.Enums;
 using BlindCatCore.Models;
+using BlindCatCore.Services;
 using BlindCatCore.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Primitives;
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Input;
 
 namespace BlindCatAvalonia;
 
@@ -30,6 +36,9 @@ public partial class MediaPresentView : Grid, MediaPresentVm.IPresentedView
 
     public MediaPresentView()
     {
+        CommandCopyImage = new Cmd(CopyImage);
+        CommandCopyPath = new Cmd(CopyPath);
+        CommandExport = new Cmd(ExportFile);
         InitializeComponent();
 
         if (Design.IsDesignMode)
@@ -54,7 +63,12 @@ public partial class MediaPresentView : Grid, MediaPresentVm.IPresentedView
             DataContext = vm;
             _ = SetSource(file, MediaPresentVm.ResolveFormat(file.FilePath), CancellationToken.None);
         }
+
     }
+
+    public ICommand CommandCopyImage { get; private set; }
+    public ICommand CommandCopyPath { get; private set; }
+    public ICommand CommandExport { get; private set; }
 
     public IMediaBase? MediaBase
     {
@@ -124,6 +138,57 @@ public partial class MediaPresentView : Grid, MediaPresentVm.IPresentedView
             }
             Scaffolt.SetMenuItems(this, col);
         }
+    }
+
+    private async void CopyImage()
+    {
+        if (_vm.IsLoading)
+            return;
+
+        using var busy = _vm.Loading();
+        var platform = App.ServiceProvider.GetRequiredService<IViewPlatforms>();
+        var bmp = imageSkia.UnsafeBitmap;
+        if (bmp == null)
+            return;
+
+        await platform.Clipboard.SetImage(bmp);
+    }
+
+    private void CopyPath()
+    {
+        if (_vm.IsLoading)
+            return;
+
+        var platform = App.ServiceProvider.GetRequiredService<IViewPlatforms>();
+        platform.Clipboard.SetText(_vm.CurrentFile.FilePath);
+    }
+
+    private async void ExportFile()
+    {
+        if (_vm.IsLoading)
+            return;
+
+        var file = _vm.CurrentFile;
+        var storageSrv = App.ServiceProvider.GetRequiredService<IStorageService>();
+        string? password = storageSrv.CurrentStorage.Password;
+
+        using var busy = _vm.Loading();
+        var crypto = App.ServiceProvider.GetRequiredService<ICrypto>();
+        using var dec = await crypto.DecryptFile(file.FilePath, password, CancellationToken.None);
+        if (dec.IsFault)
+        {
+            await _vm.HandleError(dec);
+            return;
+        }
+
+        var vp = App.ServiceProvider.GetRequiredService<IViewPlatforms>();
+        string? saveto = await vp.SaveTo(file.FileName, null);
+        if (saveto == null)
+            return;
+
+        using var saveFile = File.OpenWrite(saveto);
+        await dec.Result.CopyToAsync(saveFile);
+        await _vm.ShowMessage("Success", "File export successful", "OK");
     }
 
     private async void Slider_Pressed(object? invoker, bool isPressed)
@@ -202,7 +267,7 @@ public partial class MediaPresentView : Grid, MediaPresentVm.IPresentedView
         if (!isPressed)
             return;
 
-        if (MediaBase == null) 
+        if (MediaBase == null)
             return;
 
         var point = e.GetPosition(this);
