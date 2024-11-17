@@ -24,17 +24,18 @@ using System.Collections.ObjectModel;
 using Avalonia.Media.Imaging;
 using BlindCatAvalonia.Services;
 using System.Collections.Concurrent;
-using System.Drawing;
 using Avalonia;
 using Avalonia.Platform;
 using IntSize = System.Drawing.Size;
 using Avalonia.Controls;
+using BlindCatAvalonia.MediaPlayers.Surfaces;
 
 namespace BlindCatAvalonia.MediaPlayers;
 
-public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
+public class VideoPlayerSkia : Control, IMediaPlayer
 {
     private readonly object _lock = new();
+    private readonly IVideoSurface _surface;
     private IFFMpegService _ffmpeg = null!;
     private ICrypto _crypto = null!;
     private IStorageService _storageService = null!;
@@ -51,6 +52,9 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
     private object? currentSource;
     private System.Timers.Timer? timerProgress;
     private MediaPlayerStates _state = MediaPlayerStates.None;
+    private double? _forceScale;
+    private System.Drawing.PointF _offset;
+
 
     /// <summary>
     /// Видео доигралось до своего конца
@@ -66,7 +70,37 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
         _crypto = this.DI<ICrypto>();
         _storageService = this.DI<IStorageService>();
         _audioService = this.DI<IAudioService>();
+        _surface = new SoftwareRenderSurface();
+        //_surface = new OpenGLSurface();
+        VisualChildren.Add((Visual)_surface);
     }
+
+    protected IReusableContext? ReuseContext { get; set; }
+    public double RenderScale { get; private set; } = -1.0;
+
+    public double? ForceScale
+    {
+        get => _forceScale;
+        set
+        {
+            _forceScale = value;
+            InvalidateMeasure();
+        }
+    }
+
+    public System.Drawing.PointF Offset
+    {
+        get => _offset;
+        set
+        {
+            _offset = value;
+            InvalidateVisual();
+        }
+    }
+
+    public Stretch Stretch { get; set; } = Stretch.Uniform;
+
+    public StretchDirection StretchDirection { get; set; } = StretchDirection.Both;
 
     protected override void OnLoaded(RoutedEventArgs e)
     {
@@ -80,13 +114,143 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
         Dispose();
     }
 
-    protected override void OnScaleChanged(double scale)
+    protected virtual void OnScaleChanged(double scale)
     {
-        base.OnScaleChanged(scale);
+        RenderScale = scale;
         Dispatcher.UIThread.Post(() =>
         {
             ZoomChanged?.Invoke(this, scale);
         });
+    }
+
+    private void ResetOffsetAndScale(bool redraw = true)
+    {
+        _offset = new System.Drawing.PointF();
+        _forceScale = null;
+        if (redraw)
+            InvalidateVisual();
+    }
+
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        Size result = default;
+        try
+        {
+            if (ReuseContext == null)
+            {
+                result = new Size(0, 0);
+                return result;
+            }
+
+            if (VerticalAlignment == Avalonia.Layout.VerticalAlignment.Stretch)
+            {
+                result = availableSize;
+                return availableSize;
+            }
+
+            result = Stretch.CalculateSize(availableSize, ReuseContext.FrameSize, StretchDirection);
+            return result;
+        }
+        finally
+        {
+            var surfaceView = (Control)_surface;
+            surfaceView.Measure(result);
+        }
+    }
+
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        Size result;
+        var sourceSize = ReuseContext?.FrameSize ?? default;
+        var sur = (Control)_surface;
+
+        if (ReuseContext is null || ReuseContext.IsDisposed)
+        {
+            result = finalSize;
+        }
+        else if (VerticalAlignment == Avalonia.Layout.VerticalAlignment.Stretch)
+        {
+            result = finalSize;
+        }
+        else
+        {
+            result = Stretch.CalculateSize(finalSize, sourceSize);
+        }
+
+        if (sourceSize.Width > 0 && sourceSize.Height > 0)
+        {
+            var scale = Stretch.CalculateScaling(Bounds.Size, sourceSize, StretchDirection);
+            if (ForceScale != null)
+            {
+                double forceScale = ForceScale.Value;
+                double x = forceScale / Math.Sqrt(2);
+                scale = new Vector(x, x);
+            }
+
+            if (RenderScale != scale.Length)
+                OnScaleChanged(scale.Length);
+        }
+
+        _surface.Matrix = MakeMatrix(sourceSize);
+        sur.Arrange(Bounds);
+        return result;
+    }
+
+    private Matrix MakeMatrix(Size sourceSize)
+    {
+        if (ReuseContext == null || ReuseContext.IsDisposed)
+        {
+            return default;
+        }
+
+        var viewPort = new Rect(Bounds.Size);
+        if (sourceSize.Width <= 0 || sourceSize.Height <= 0)
+        {
+            return default;
+        }
+
+        if (VisualRoot == null)
+            return default;
+
+        var scale = Stretch.CalculateScaling(Bounds.Size, sourceSize, StretchDirection);
+        if (ForceScale != null)
+        {
+            double forceScale = ForceScale.Value;
+            double x = forceScale / Math.Sqrt(2);
+            scale = new Vector(x, x);
+        }
+
+        if (RenderScale != scale.Length)
+            OnScaleChanged(scale.Length);
+
+        var scaledSize = sourceSize * scale;
+        var centerRect = viewPort.CenterRect(new Rect(scaledSize));
+
+        var destRect = centerRect.Intersect(viewPort);
+
+        var sourceRect = new Rect(sourceSize).CenterRect(new Rect(destRect.Size / scale));
+
+        var bounds = new Rect(0, 0, ReuseContext.IntFrameSize.Width, ReuseContext.IntFrameSize.Height);
+        var scaleMatrix = Matrix.CreateScale(
+            destRect.Width / sourceRect.Width,
+            destRect.Height / sourceRect.Height);
+
+        double offsetX = Offset.X;
+        double offsetY = Offset.Y;
+
+        double transX = centerRect.X + offsetX;
+        double transY = centerRect.Y + offsetY;
+
+        double mod1 = transX * (sourceRect.Width / destRect.Width);
+        double mod2 = transY * (sourceRect.Height / destRect.Height);
+        var translateMatrix = Matrix.CreateTranslation(mod1, mod2);
+
+        if (destRect == default)
+        {
+            return default;
+        }
+
+        return translateMatrix * scaleMatrix;
     }
 
     private async void SkiaFFmpegVideoPlayer_VideoPlayingToEnd(object? sender, EventArgs e)
@@ -182,8 +346,9 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
         timerProgress.AutoReset = true;
         CalculateProgress(startFrom);
         progressTick = rateMs / Duration.TotalMilliseconds;
-        var reuseContext = new ReuseContextSkia(new IntSize(cachedVideoMeta.Width, cachedVideoMeta.Height), videoEngine);
-        Source(reuseContext);
+        ReuseContext = new ReuseContextSkia(new IntSize(cachedVideoMeta.Width, cachedVideoMeta.Height), videoEngine);
+        InvalidateMeasure();
+        _surface.SetupSource(ReuseContext);
 
         if (autoStart)
         {
@@ -224,7 +389,7 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
     {
         var ct = ReuseContext as ReuseContextSkia;
         ct?.Push(frameData);
-        OnFrameReady();
+        _surface.OnFrameReady();
     }
 
     #region media player
@@ -473,7 +638,7 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
 
     public void InvalidateSurface()
     {
-        this.InvalidateVisual();
+        InvalidateArrange();
     }
     #endregion media player
 
@@ -640,12 +805,10 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
 
     private class ReuseContextSkia : IReusableContext
     {
-        private readonly BitmapPool _bitmapPool;
         private readonly FramePool _framePool;
 
         public ReuseContextSkia(IntSize intFrameSize, VideoEngine engine)
         {
-            _bitmapPool = new BitmapPool(intFrameSize);
             _framePool = new FramePool(engine);
             IntFrameSize = intFrameSize;
         }
@@ -658,25 +821,9 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
             _framePool.Add(frame);
         }
 
-        public void Dispose()
-        {
-            if (IsDisposed) 
-                return;
-
-            IsDisposed = true;
-            _bitmapPool.Dispose();
-            _framePool.Dispose();
-        }
-
         public IFrameData? GetFrame()
         {
-            //return _framePool.FetchCarefulAndLock();
-            return _framePool.FetchActualLoseOther();
-        }
-
-        public ReusableBitmap ResolveBitmap()
-        {
-            return _bitmapPool.Resolve();
+            return _framePool.FetchActualLoseOther2();
         }
 
         public void RecycleFrame(IFrameData data)
@@ -684,76 +831,13 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
             _framePool.Free(data);
         }
 
-        public void RecycleBitmap(ReusableBitmap bitmap)
-        {
-            _bitmapPool.Free(bitmap);
-        }
-    }
-
-    private class BitmapPool : IDisposable
-    {
-        private readonly List<ReusableBitmap> _pool = new();
-        private readonly PixelSize _pixSize;
-        private readonly Vector _vector;
-        private bool _disposed = false;
-
-        public BitmapPool(IntSize size)
-        {
-            _pixSize = new PixelSize(size.Width, size.Height);
-            _vector = new Vector(96, 96);
-            var Bmp1 = new ReusableBitmap(_pixSize, _vector, PixelFormat.Rgba8888, AlphaFormat.Opaque)
-            {
-                DebugName = "#1",
-            };
-            var Bmp2 = new ReusableBitmap(_pixSize, _vector, PixelFormat.Rgba8888, AlphaFormat.Opaque)
-            {
-                DebugName = "#2",
-            };
-            _pool.Add(Bmp1);
-            _pool.Add(Bmp2);
-        }
-
         public void Dispose()
         {
-            if (_disposed) 
+            if (IsDisposed)
                 return;
 
-            _disposed = true;
-            foreach (var bmp in _pool)
-            {
-                if (!bmp.IsRendering)
-                    bmp.Dispose();
-            }
-            _pool.Clear();
-            GC.SuppressFinalize(this);
-        }
-
-        public ReusableBitmap Resolve()
-        {
-            ReusableBitmap? match;
-            match = _pool.FirstOrDefault(x => !x.IsRendering);
-
-            if (match == null)
-            {
-                match = new ReusableBitmap(_pixSize, _vector, PixelFormat.Rgba8888, AlphaFormat.Opaque)
-                {
-                    DebugName = $"#{_pool.Count + 1}",
-                };
-                _pool.Add(match);
-            }
-
-            return match;
-        }
-
-        public void Free(ReusableBitmap bitmap)
-        {
-            bitmap.IsRendering = false;
-
-            if (_disposed)
-            {
-                bitmap.SkiaBitmapDetected.Reset();
-                bitmap.Dispose();
-            }
+            IsDisposed = true;
+            _framePool.Dispose();
         }
     }
 
@@ -764,6 +848,7 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
         private readonly VideoEngine _videoEngine;
         private readonly object _lock = new();
         private bool _disposed;
+        private IFrameData? _current;
 
         public FramePool(VideoEngine videoEngine)
         {
@@ -777,6 +862,23 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
             lock (_lock)
             {
                 _listReady.Add(frame);
+            }
+        }
+
+        public IFrameData? FetchActualLoseOther2()
+        {
+            lock (_lock)
+            {
+                var frame = FetchActualLoseOther();
+                if (frame == null)
+                {
+                    frame = _current;
+                }
+                else
+                {
+                    _current = frame;
+                }
+                return frame;
             }
         }
 
@@ -891,7 +993,6 @@ public class VideoPlayerSkia : SKBitmapControlReuse, IMediaPlayer
                     //Debugger.Break();
                     //throw new InvalidOperationException();
                 }
-                data.IsLocked = false;
             }
         }
 

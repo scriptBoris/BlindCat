@@ -11,11 +11,6 @@ namespace BlindCatAvalonia.Core;
 
 public interface IFrameData : IDisposable
 {
-    /// <summary>
-    /// bitmap who is used it pixmap
-    /// </summary>
-    object? Parent { get; set; }
-    
     bool IsDisposed { get; }
     
     /// <summary>
@@ -28,16 +23,13 @@ public interface IFrameData : IDisposable
     /// </summary>
     bool IsLocked { get; set; }
 
-    /// <summary>
-    /// Is this frame inside a bitmap?
-    /// </summary>
-    bool IsUsedInBitmap { get; set; }
-
     DateTime DecodedAt { get; }
 
     int Width { get; }
-    int BytesPerPixel { get; }
+    sbyte BytesPerPixel { get; }
     int Height { get; }
     nint Pointer { get; }
     PixelFormat PixelFormat { get; }
+
+    void CopyTo(nint destination);
 }

@@ -276,6 +276,7 @@ public partial class MediaPresentView : Grid, MediaPresentVm.IPresentedView
         float x = MediaBase.PositionOffset.X - (float)deltaX;
         float y = MediaBase.PositionOffset.Y - (float)deltaY;
         MediaBase.PositionOffset = new PointF(x, y);
+        Avalonia.Threading.Dispatcher.UIThread.Post(MediaBase.InvalidateSurface);
         lastPoint = point;
     }
 
