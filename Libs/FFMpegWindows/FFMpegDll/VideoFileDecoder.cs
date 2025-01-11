@@ -7,9 +7,9 @@ using FFmpeg.AutoGen.Abstractions;
 using FFMpegDll;
 using FFMpegDll.Internal;
 
-namespace FFmpegDll;
+namespace FFMpegDll;
 
-public sealed unsafe class VideoFileDecoder : IDisposable
+public sealed unsafe class VideoFileDecoder : IVideoDecoder, IDisposable
 {
     private readonly AVCodecContext* _pCodecContext;
     private readonly AVFormatContext* _pFormatContext;
@@ -69,31 +69,6 @@ public sealed unsafe class VideoFileDecoder : IDisposable
     public string CodecName { get; }
     public Size FrameSize { get; }
     public AVPixelFormat PixelFormat { get; }
-
-    public void Dispose()
-    {
-        lock (_locker)
-        {
-            if (_disposed)
-            {
-                Debugger.Break();
-                throw new ObjectDisposedException(GetType().FullName);
-            }
-
-            _disposed = true;
-            var pFrame = _pFrame;
-            ffmpeg.av_frame_free(&pFrame);
-
-            var pPacket = _pPacket;
-            ffmpeg.av_packet_free(&pPacket);
-
-            var pCodecContext = _pCodecContext;
-            var pFormatContext = _pFormatContext;
-
-            ffmpeg.avcodec_free_context(&pCodecContext);
-            ffmpeg.avformat_close_input(&pFormatContext);
-        }
-    }
 
     public void SeekTo(TimeSpan time)
     {
@@ -187,5 +162,30 @@ public sealed unsafe class VideoFileDecoder : IDisposable
         }
 
         return result;
+    }
+
+    public void Dispose()
+    {
+        lock (_locker)
+        {
+            if (_disposed)
+            {
+                Debugger.Break();
+                throw new ObjectDisposedException(GetType().FullName);
+            }
+
+            _disposed = true;
+            var pFrame = _pFrame;
+            ffmpeg.av_frame_free(&pFrame);
+
+            var pPacket = _pPacket;
+            ffmpeg.av_packet_free(&pPacket);
+
+            var pCodecContext = _pCodecContext;
+            var pFormatContext = _pFormatContext;
+
+            ffmpeg.avcodec_free_context(&pCodecContext);
+            ffmpeg.avformat_close_input(&pFormatContext);
+        }
     }
 }

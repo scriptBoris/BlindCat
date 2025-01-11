@@ -207,39 +207,6 @@ public class Crypto : ICrypto
         var cryptoStream = new CryptoStream(encriptedStream, aesAlg.CreateDecryptor(), CryptoStreamMode.Read);
         var tube = new TubeStream(cryptoStream, payloadLength, remake);
         return AppResponse.Result<Stream>(tube);
-
-        #region oldcote
-        //int half = (int)((float)encriptedStream.Length * 0.1f);
-        //int size = (int)encriptedStream.Length + half + 128;
-        //var outStream = new MemStream2(size);
-        //try
-        //{
-        //    using var cryptoStream = new CryptoStream(encriptedStream, aesAlg.CreateDecryptor(), CryptoStreamMode.Read);
-        //    await cryptoStream.CopyToAsync(outStream);
-        //    outStream.Position = 0;
-        //}
-        //catch (Exception ex3)
-        //{
-        //    encriptedStream.Dispose();
-        //    encriptedStream = null!;
-        //    outStream.Dispose();
-        //    outStream = null!;
-        //    return AppResponse.Error("Fail to decrypt data", 55581, ex3);
-        //}
-
-        //if (cancel.IsCancellationRequested)
-        //{
-        //    outStream.Dispose();
-        //    outStream = null;
-        //    encriptedStream.Dispose();
-        //    encriptedStream = null!;
-        //    return AppResponse.Canceled;
-        //}
-
-        //encriptedStream.Dispose();
-        //encriptedStream = null!;
-        //return AppResponse.Result<Stream>(outStream);
-        #endregion oldcote
     }
 
     private AppResponse<CryptoStream> DecryptFileSync(string inputFile, string password, long offset)
@@ -272,11 +239,6 @@ public class Crypto : ICrypto
             {
                 ex = ex1;
                 tryCount--;
-                // todo сделать ожидание?
-                //await TaskExt.Delay(300, cancel);
-
-                //if (cancel.IsCancellationRequested)
-                //    return AppResponse.Canceled;
             }
         }
 

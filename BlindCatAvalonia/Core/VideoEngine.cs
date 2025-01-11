@@ -6,20 +6,13 @@ using System.Threading.Tasks;
 using System.Timers;
 using Avalonia.Platform;
 using System.Diagnostics;
-using FFmpegDll;
-using FFmpeg.AutoGen.Bindings.DynamicallyLoaded;
-using FFMpegDll;
 using FFmpeg.AutoGen.Abstractions;
 using System.Runtime.InteropServices;
 using System.Collections.Generic;
 using IntSize = System.Drawing.Size;
-using Avalonia.Threading;
 using System.Runtime.CompilerServices;
-using Avalonia;
-using System.Drawing;
-using SkiaSharp;
-using System.Collections;
-using System.Linq;
+using System.IO;
+using FFMpegDll;
 
 namespace BlindCatAvalonia.Core;
 
@@ -33,7 +26,7 @@ public class VideoEngine : IDisposable
     private readonly ConcurrentQueue<IFrameData> _frameBuffer = new();
     private readonly IntSize? _resize;
     private System.Timers.Timer _timerFramerate;
-    private VideoFileDecoder _videoDecoder;
+    private IVideoDecoder _videoDecoder;
     private Thread _engineThread;
     private bool _isDisposed;
     private bool _isEngineRunning;
@@ -62,11 +55,11 @@ public class VideoEngine : IDisposable
         switch (play)
         {
             case string filePath:
-                _videoDecoder = new VideoFileDecoder(filePath, FFmpeg.AutoGen.Abstractions.AVHWDeviceType.AV_HWDEVICE_TYPE_NONE);
+                _videoDecoder = new FFMpegDll.VideoFileDecoder(filePath, FFmpeg.AutoGen.Abstractions.AVHWDeviceType.AV_HWDEVICE_TYPE_NONE);
                 break;
-            //case Stream stream:
-            //    videoReader = new RawVideoReader(stream, pathToFFmpegExe);
-            //    break;
+            case Stream stream:
+                _videoDecoder = new FFMpegDll.VideoStreamDecoder(stream, FFmpeg.AutoGen.Abstractions.AVHWDeviceType.AV_HWDEVICE_TYPE_NONE);
+                break;
             //case FileCENC fileCENC:
             //    videoReader = new RawVideoReader(fileCENC, pathToFFmpegExe);
             //    break;
