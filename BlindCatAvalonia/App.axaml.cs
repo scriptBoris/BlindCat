@@ -87,7 +87,8 @@ public partial class App : Application
             .RegisterNav<StorageCreateVm, StorageCreateView>()
             .RegisterNav<StoragePresentVm, StoragePresentView>()
             //.RegisterNav<StorageEditVm, StorageEditView>()
-            //.RegisterNav<AlbumVm, AlbumView>()
+            .RegisterNav<AlbumVm, AlbumView>()
+            .RegisterNav<AlbumCreateVm, AlbumCreateView>()
             ;
 
         // popups

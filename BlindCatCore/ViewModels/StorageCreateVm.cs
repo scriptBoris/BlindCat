@@ -65,6 +65,7 @@ public class StorageCreateVm : BaseVm<StorageDir>
         {
             store.Controller = new StorageDirController
             {
+                Storage = store,
                 Password = Password!,
             };
         }

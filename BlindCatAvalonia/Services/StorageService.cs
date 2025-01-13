@@ -216,8 +216,8 @@ public class StorageService : IStorageService
         unsavedFile.Storage = storage;
         unsavedFile.CachedMediaFormat = mediaFormat;
         unsavedFile.EncryptionMethod = BlindCatCore.Enums.EncryptionMethods.dotnet;
-        unsavedFile.DateInitIndex = DateTime.Now;
-        unsavedFile.DateLastIndex = DateTime.Now;
+        unsavedFile.DateCreated = DateTime.Now;
+        unsavedFile.DateModified = DateTime.Now;
 
         string? savedPathThumbnail = null;
         string? savedPathEncrypted = null;
@@ -337,8 +337,8 @@ public class StorageService : IStorageService
             unsavedFile.Guid = default;
             unsavedFile.FilePath = originFilePath;
             unsavedFile.Storage = null;
-            unsavedFile.DateInitIndex = null;
-            unsavedFile.DateLastIndex = null;
+            unsavedFile.DateCreated = null;
+            unsavedFile.DateModified = null;
             unsavedFile.CachedMediaFormat = BlindCatCore.Enums.MediaFormats.Unknown;
             unsavedFile.EncryptionMethod = BlindCatCore.Enums.EncryptionMethods.Unknown;
             return addFile.AsError;
@@ -489,10 +489,10 @@ public class StorageService : IStorageService
 
     public async Task<AppResponse> UpdateStorageFile(StorageDir storage, StorageFile file, string password)
     {
-        if (file.DateInitIndex == null)
-            file.DateInitIndex = DateTime.Now;
+        if (file.DateCreated == null)
+            file.DateCreated = DateTime.Now;
 
-        file.DateLastIndex = DateTime.Now;
+        file.DateModified = DateTime.Now;
 
         var dbRes = await _dataBaseService.UpdateContent(storage.PathIndex, password, file);
         if (dbRes.IsFault)
@@ -556,24 +556,23 @@ public class StorageService : IStorageService
 
     public async Task<AppResponse> InitStorage(StorageDir _storage, string password, CancellationToken cancel)
     {
-        var res = await ReadObjects(_storage, cancel);
+        var res = await ReadObjects(_dataBaseService, _storage, cancel);
         if (res.IsFault)
             return res.AsError;
 
         if (res.Result == null)
             return AppResponse.OK;
 
-        var list = new ObservableCollection<StorageFile>(res.Result);
-
         _storage.Controller = new StorageDirController
         {
+            Storage = _storage,
             Password = password,
         };
-        await _storage.Controller.InitFiles(res.Result);
+        await _storage.Controller.InitFiles(res.Result.HumanItems, res.Result.AllContentFiles);
         return AppResponse.OK;
     }
 
-    private async Task<AppResponse<StorageFile[]>> ReadObjects(StorageDir _storage, CancellationToken token)
+    private static async Task<AppResponse<ReadResult>> ReadObjects(IDataBaseService _dataBaseService, StorageDir _storage, CancellationToken token)
     {
         string[] files = Directory.GetFiles(_storage.Path);
 
@@ -606,9 +605,25 @@ public class StorageService : IStorageService
             };
         }, token);
 
+        var unsortedContent = new ConcurrentBag<ISourceFile>();
+        var unsortedResultItems = new ConcurrentBag<IStorageElement>();
+
+        // читаем файлы в БД
         var listDb = await _dataBaseService.GetFiles(_storage.PathIndex, _storage.Password, token);
         if (listDb.IsFault)
             return listDb.AsError;
+
+        // читаем альбомы в БД
+        var albumsDb = await _dataBaseService.GetAlbums(_storage.PathIndex, _storage.Password, token);
+        if (albumsDb.IsFault)
+            return albumsDb.AsError;
+
+        var albums = albumsDb.Result;
+        foreach (var album in albums)
+        {
+            album.SourceDir = _storage;
+            unsortedResultItems.Add(album);
+        }
 
         var a = realFiles.Select(x => x.Guid);
         var b = listDb.Result.Select(x => x.Guid);
@@ -617,7 +632,6 @@ public class StorageService : IStorageService
         if (token.IsCancellationRequested)
             return AppResponse.Canceled;
 
-        var resultItems = new ConcurrentBag<StorageFile>();
 
         // Беспорядок в БД:
         // Запись в БД есть, а файла нету
@@ -626,10 +640,12 @@ public class StorageService : IStorageService
             foreach (var guid in expecpts.a)
             {
                 var dbRow = listDb.Result.First(x => x.Guid == guid);
-                dbRow.IsNoFile = true;
+                dbRow.IsErrorNoFile = true;
                 dbRow.Storage = _storage;
                 dbRow.EncryptionMethod = BlindCatCore.Enums.EncryptionMethods.Unknown;
-                resultItems.Add(dbRow);
+                
+                unsortedContent.Add(dbRow);
+                unsortedResultItems.Add(dbRow);
             }
         }
 
@@ -640,15 +656,17 @@ public class StorageService : IStorageService
             foreach (var guid in expecpts.b)
             {
                 var file = realFiles.First(x => x.Guid == guid);
-                file.IsNoDBRow = true;
+                file.IsErrorNoDBRow = true;
                 file.Name = "<NO_DB_ROW>";
                 file.EncryptionMethod = BlindCatCore.Enums.EncryptionMethods.Unknown;
-                resultItems.Add(file);
+
+                unsortedContent.Add(file);
+                unsortedResultItems.Add(file);
             }
         }
 
         // сопоставляем
-        await Parallel.ForEachAsync(listDb.Result, async (dbItem, cancel) =>
+        await Parallel.ForEachAsync(listDb.Result, (dbItem, cancel) =>
         {
             var matchFile = realFiles.FirstOrDefault(x => x.Guid == dbItem.Guid);
             if (matchFile != null)
@@ -659,24 +677,44 @@ public class StorageService : IStorageService
                 matchFile.Tags = dbItem.Tags;
                 matchFile.Artist = dbItem.Artist;
                 matchFile.CachedMediaFormat = dbItem.CachedMediaFormat;
-                matchFile.DateLastIndex = dbItem.DateLastIndex;
-                matchFile.DateInitIndex = dbItem.DateInitIndex;
+                matchFile.DateCreated = dbItem.DateCreated;
+                matchFile.DateModified = dbItem.DateModified;
                 matchFile.FilePreview = dbItem.FilePreview;
                 matchFile.EncryptionMethod = dbItem.EncryptionMethod;
-                resultItems.Add(matchFile);
+                matchFile.ParentAlbumGuid = dbItem.ParentAlbumGuid;
+
+                if (matchFile.ParentAlbumGuid != null)
+                {
+                    var parentAlbum = albums.FirstOrDefault(x => x.Guid == matchFile.ParentAlbumGuid);
+                    if (parentAlbum != null)
+                    {
+                        parentAlbum.SafeAdd(matchFile);
+                    }
+                }
+                else
+                {
+                    unsortedResultItems.Add(matchFile);
+                }
+                unsortedContent.Add(matchFile);
             }
+            return ValueTask.CompletedTask;
         });
 
-        StorageFile[] resultFiles = null!;
+        IStorageElement[] sortedResultFiles = null!;
         await TaskExt.Run(() =>
         {
-            resultFiles = resultItems.Order(new Sorting()).ToArray();
+            sortedResultFiles = unsortedResultItems.Order(new Sorting()).ToArray();
         }, token);
 
         if (token.IsCancellationRequested)
             return AppResponse.Canceled;
 
-        return AppResponse.Result(resultFiles);
+        var result = new ReadResult
+        {
+            AllContentFiles = unsortedContent.ToArray(),
+            HumanItems = sortedResultFiles,
+        };
+        return AppResponse.Result(result);
     }
 
     public async Task<bool> CheckStorageDir(string indexFilePath)
@@ -713,9 +751,9 @@ public class StorageService : IStorageService
         });
     }
 
-    private class Sorting : IComparer<StorageFile>
+    private class Sorting : IComparer<IStorageElement>
     {
-        public int Compare(StorageFile a, StorageFile b)
+        public int Compare(IStorageElement a, IStorageElement b)
         {
             if (a.HasError || b.HasError)
             {
@@ -727,12 +765,18 @@ public class StorageService : IStorageService
                     return 0;
             }
 
-            if (a.DateInitIndex < b.DateInitIndex)
+            if (a.DateCreated < b.DateCreated)
                 return 1;
-            else if (a.DateInitIndex > b.DateInitIndex)
+            else if (a.DateCreated > b.DateCreated)
                 return -1;
             else
                 return 0;
         }
+    }
+
+    private class ReadResult
+    {
+        public required IStorageElement[] HumanItems { get; set; }
+        public required ISourceFile[] AllContentFiles { get; set; }
     }
 }

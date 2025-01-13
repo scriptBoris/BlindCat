@@ -11,6 +11,7 @@ public class BlindCatDbContext : DbContext
 
     public DbSet<MetaDb> Meta => Set<MetaDb>();
     public DbSet<ContentStorageDb> Contents => Set<ContentStorageDb>();
+    public DbSet<AlbumStorageDb> Albums => Set<AlbumStorageDb>();
 
     private BlindCatDbContext(string _dataPath, bool _isDesignTime)
     {

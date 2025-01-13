@@ -3,6 +3,7 @@ using System;
 using BlindCatData;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,44 +11,14 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BlindCatData.Migrations
 {
     [DbContext(typeof(BlindCatDbContext))]
-    partial class MauiDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250112004253_Albums")]
+    partial class Albums
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.10");
-
-            modelBuilder.Entity("BlindCatData.Models.AlbumStorageDb", b =>
-                {
-                    b.Property<Guid>("Guid")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Artist")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid?>("CoverGuid")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("DateCreated")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("DateModified")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Name")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Tags")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Guid");
-
-                    b.ToTable("Albums");
-                });
 
             modelBuilder.Entity("BlindCatData.Models.ContentStorageDb", b =>
                 {
@@ -85,7 +56,7 @@ namespace BlindCatData.Migrations
 
                     b.HasKey("Guid");
 
-                    b.ToTable("Contents");
+                    b.ToTable("ContentStorageDb");
                 });
 
             modelBuilder.Entity("BlindCatData.Models.MetaDb", b =>

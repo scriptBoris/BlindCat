@@ -50,17 +50,20 @@ public class DataBaseService : IDataBaseService
             .Encrypt(password, _crypto);
 
         // date index
-        destination.DateIndex = source.DateInitIndex
+        destination.DateIndex = source.DateCreated
             .EncryptDate(password, _crypto);
 
         // date last index
-        destination.DateLastIndex = source.DateLastIndex
+        destination.DateLastIndex = source.DateModified
             .EncryptDate(password, _crypto);
 
         // encryption type
         string? encMethod = source.EncryptionMethod == EncryptionMethods.None ? null : source.EncryptionMethod.ToString();
         destination.EncryptionType = encMethod
             .Encrypt(password, _crypto);
+
+        // parent album guid
+        destination.Parent = source.ParentAlbumGuid;
     }
 
     private void Map(ContentStorageDb source, StorageFile destination, string? password)
@@ -91,17 +94,87 @@ public class DataBaseService : IDataBaseService
             .TryParseEnum(MediaFormats.Unknown);
 
         // date index
-        destination.DateInitIndex = source.DateIndex
+        destination.DateCreated = source.DateIndex
             .DecryptDate(password, _crypto);
 
         // date last index
-        destination.DateLastIndex = source.DateLastIndex
+        destination.DateModified = source.DateLastIndex
             .DecryptDate(password, _crypto);
 
         // encryption type
         destination.EncryptionMethod = source.EncryptionType
             .Decrypt(password, _crypto)
             .TryParseEnum(EncryptionMethods.Unknown);
+
+        // parent album guid
+        destination.ParentAlbumGuid = source.Parent;
+    }
+
+    private void MapAlbum(AlbumStorageDb source, StorageAlbum destination, string? password)
+    {
+        // guid
+        destination.Guid = source.Guid;
+
+        // name
+        destination.Name = source.Name
+            .Decrypt(password, _crypto);
+
+        // artist
+        destination.Artist = source.Artist
+            .Decrypt(password, _crypto);
+
+        // description
+        destination.Description = source.Description
+            .Decrypt(password, _crypto);
+
+        // tags
+        destination.Tags = source.Tags
+            .Decrypt(password, _crypto)?
+            .Split(',', StringSplitOptions.RemoveEmptyEntries) ?? [];
+
+        // date created
+        destination.DateCreated = source.DateCreated
+            .DecryptDate(password, _crypto);
+
+        // date modified
+        destination.DateModified = source.DateModified
+            .DecryptDate(password, _crypto);
+
+        // cover guid
+        destination.CoverGuid = source.CoverGuid;
+    }
+
+    private void MapAlbum(StorageAlbum source, AlbumStorageDb destination, string? password)
+    {
+        // guid
+        destination.Guid = source.Guid;
+
+        // name
+        destination.Name = source.Name
+            .Encrypt(password, _crypto);
+
+        // artist
+        destination.Artist = source.Artist
+            .Encrypt(password, _crypto);
+
+        // description
+        destination.Description = source.Description
+            .Encrypt(password, _crypto);
+
+        // tags
+        destination.Tags = string.Join(',', source.Tags)
+            .Encrypt(password, _crypto);
+
+        // date created
+        destination.DateCreated = source.DateCreated
+            .EncryptDate(password, _crypto);
+
+        // date modified
+        destination.DateModified = source.DateModified
+            .EncryptDate(password, _crypto);
+
+        // cover guid
+        destination.CoverGuid = source.CoverGuid;
     }
 
     public async Task<AppResponse> AddContent(string dbPath, string? password, StorageFile file, Func<Task<AppResponse>> body)
@@ -230,6 +303,64 @@ public class DataBaseService : IDataBaseService
         }
     }
 
+    public async Task<AppResponse> CreateAlbum(string dataBasePath, string password, StorageAlbum album)
+    {
+        using var db = BlindCatDbContext.JustConnect(dataBasePath);
+        using var transaction = await db.Database.BeginTransactionAsync();
+        try
+        {
+            var dbAdd = new AlbumStorageDb
+            {
+                Guid = default,
+            };
+
+            MapAlbum(album, dbAdd, password);
+
+            await db.Albums.AddAsync(dbAdd);
+            await db.SaveChangesAsync();
+
+            foreach (var item in album.Contents)
+            {
+                var contentDb = await db.Contents.FindAsync(item);
+                if (contentDb == null)
+                {
+                    transaction.Rollback();
+                    return AppResponse.Error("Fail to create new album because some files no contains into Database");
+                }
+
+                contentDb.Parent = dbAdd.Guid;
+                db.Contents.Update(contentDb);
+            }
+            await db.SaveChangesAsync();
+
+            transaction.Commit();
+            return AppResponse.OK;
+        }
+        catch (Exception ex)
+        {
+            return AppResponse.Error("Fail add content to db", 44114, ex);
+        }
+    }
+
+    public async Task<AppResponse> DeleteAlbum(string dataBasePath, string password, StorageAlbum album)
+    {
+        using var db = BlindCatDbContext.JustConnect(dataBasePath);
+        try
+        {
+            var match = await db.Albums.FindAsync(album.Guid);
+            if (match == null)
+                return AppResponse.Error("Fail to delete album entity db because no find");
+
+            db.Albums.Remove(match);
+            await db.SaveChangesAsync();
+            return AppResponse.OK;
+        }
+        catch (Exception ex)
+        {
+            return AppResponse.Error("Fail to delete album entity db", 44114, ex);
+        }
+    }
+
     public async Task<bool> CheckPasswordValid(string pathIndex, string? password)
     {
         if (!Path.Exists(pathIndex))
@@ -329,11 +460,11 @@ public class DataBaseService : IDataBaseService
             var appItem = res.Result.AppItems[i];
             var dbItem = res.Result.DbItems[i];
 
-            if (appItem.DateInitIndex == null)
+            if (appItem.DateCreated == null)
             {
                 var created = File.GetCreationTime(appItem.FilePath);
-                appItem.DateInitIndex = created;
-                appItem.DateLastIndex = created;
+                appItem.DateCreated = created;
+                appItem.DateModified = created;
 
                 Map(appItem, dbItem, password);
                 db.Contents.Update(dbItem);
@@ -345,6 +476,76 @@ public class DataBaseService : IDataBaseService
             await db.SaveChangesAsync();
 
         return AppResponse.Result(res.Result.AppItems);
+    }
+
+    public async Task<AppResponse<StorageAlbum[]>> GetAlbums(string pathIndex, string? password, CancellationToken cancel)
+    {
+        if (cancel.IsCancellationRequested)
+            return AppResponse.Canceled;
+
+        if (!File.Exists(pathIndex))
+            return AppResponse.Error("DB index file is not exists", 40023);
+
+        using var db = BlindCatDbContext.JustConnect(pathIndex);
+
+        // cote
+        string? pathDir = Path.GetDirectoryName(pathIndex);
+        if (pathDir == null)
+            return AppResponse.Error($"Fail to get directory path by \"{pathDir}\"", 4040001);
+
+        var dbItems = await db.Albums.ToArrayAsync(cancel);
+        var files = new StorageAlbum[dbItems.Length];
+
+        try
+        {
+            await TaskExt.Run(() =>
+            {
+                for (int i = 0; i < dbItems.Length; i++)
+                {
+                    var dbItem = dbItems[i];
+                    string guidFile = dbItem.Guid.ToString();
+                    var appItem = new StorageAlbum
+                    {
+                        SourceDir = null,
+                    };
+
+                    MapAlbum(dbItem, appItem, password);
+
+                    files[i] = appItem;
+                }
+            }, cancel);
+
+            if (cancel.IsCancellationRequested)
+                return AppResponse.Canceled;
+        }
+        catch (Exception ex)
+        {
+            return AppResponse.Error("Error parse data from db", 3571, ex);
+        }
+
+        //// AUTO FIX
+        //bool save = false;
+        //for (int i = 0; i < files.Length; i++)
+        //{
+        //    var appItem = res.Result.AppItems[i];
+        //    var dbItem = res.Result.DbItems[i];
+
+        //    if (appItem.DateCreated == null)
+        //    {
+        //        var created = File.GetCreationTime(appItem.FilePath);
+        //        appItem.DateCreated = created;
+        //        appItem.DateModified = created;
+
+        //        Map(appItem, dbItem, password);
+        //        db.Contents.Update(dbItem);
+        //        save = true;
+        //    }
+        //}
+
+        //if (save)
+        //    await db.SaveChangesAsync();
+
+        return AppResponse.Result(files);
     }
 
     private async Task<AppResponse<ItemsBundle>> GetFilesInternal(string pathIndex, string? password, BlindCatDbContext db, CancellationToken cancel)

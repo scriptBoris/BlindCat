@@ -6,24 +6,25 @@ using BlindCatCore.PopupViewModels;
 using BlindCatCore.Services;
 using PropertyChanged;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Windows.Input;
 
 namespace BlindCatCore.ViewModels;
 
 public class StoragePresentVm : BaseVm
 {
-    private readonly List<StorageFile> _selectedFiles = new();
+    private readonly List<IStorageElement> _selectedFiles = new();
     private CancellationTokenSource _popCancel = new();
     private string _searchText = "";
     private readonly StorageDir _storage;
     private readonly IStorageService _storageService;
     private readonly IViewPlatforms _viewPlatforms;
     private readonly IDeclaratives _declaratives;
+    private readonly IDataBaseService _dataBaseService;
     private readonly string _password;
     private CancellationTokenSource _searchCancel = new();
     private readonly SuggestionController _suggestionController;
-    private ObservableCollection<StorageFile>? _files;
-    private ReadOnlyObservableCollection<StorageFile> _filesRO;
+    private ObservableCollection<IStorageElement>? _files;
 
     private SortingStorageItems _selectedSortingItem = SortingStorageItems.ByDateIndex;
 
@@ -32,22 +33,28 @@ public class StoragePresentVm : BaseVm
         public required StorageDir StorageCell { get; set; }
         public required string Password { get; set; }
     }
-    public StoragePresentVm(Key key, IStorageService storageService, IViewPlatforms viewPlatforms, IDeclaratives declaratives)
+    public StoragePresentVm(Key key, IStorageService storageService, IViewPlatforms viewPlatforms, IDeclaratives declaratives,
+        IDataBaseService dataBaseService)
     {
         _storage = key.StorageCell;
         _password = key.Password;
         _storageService = storageService;
         _viewPlatforms = viewPlatforms;
         _declaratives = declaratives;
+        _dataBaseService = dataBaseService;
         _suggestionController = new(viewPlatforms);
-        _filesRO = new([]);
-        CommandOpenItem = new Cmd<StorageFile>(ActionOpenItem);
-        CommandSelectedChanged = new Cmd<StorageFile>(ActionSelectedChanged);
+        Files = new([]);
+        CommandOpenItem = new Cmd<IStorageElement>(ActionOpenItem);
+        CommandSelectedChanged = new Cmd<IStorageElement>(ActionSelectedChanged);
+        CommandSelectionSpan = new Cmd<IStorageElement>(ActionSelectionSpan);
         CommandExploreItem = new Cmd<ISourceFile>(ActionExploreItem);
         CommandDeleteItem = new Cmd<ISourceFile>(ActionDeleteItem);
+        CommandMoveToNewAlbum = new Cmd<ISourceFile>(ActionMoveToNewAlbum);
+        CommandMoveToAlbum = new Cmd<ISourceFile>(ActionMoveToAlbum);
         StorageName = _storage.Name;
 
-        _storage.FileDeleted += _storage_FileDeleted;
+        _storage.ElementAdded += _storage_ElementAdded;
+        _storage.ElementRemoved += _storage_ElementRemoved;
     }
 
     #region props
@@ -70,7 +77,7 @@ public class StoragePresentVm : BaseVm
     }
 
     public bool IsSearching { get; private set; }
-    public ReadOnlyObservableCollection<StorageFile> Files => _filesRO;
+    public ReadOnlyObservableCollection<IStorageElement> Files { get; private set; }
 
     [OnChangedMethod(nameof(OnSorting))]
     public SortingStorageItems SelectedSortingItem { get; set; } = SortingStorageItems.ByDateIndex;
@@ -112,17 +119,49 @@ public class StoragePresentVm : BaseVm
     });
 
     public ICommand CommandOpenItem { get; set; }
-    private void ActionOpenItem(StorageFile file)
+    private void ActionOpenItem(IStorageElement element)
     {
-        GoTo(new MediaPresentVm.Key
+        switch (element)
         {
-            SourceDir = _storage,
-            SourceFile = file
-        });
+            case ISourceFile file:
+                GoTo(new MediaPresentVm.Key
+                {
+                    SourceDir = _storage,
+                    SourceFile = file
+                });
+                break;
+            case StorageAlbum album:
+                var items = new List<ISourceFile>();
+                var allContentFiles = _storage
+                    .Controller?
+                    .StorageContentFiles;
+
+                if (allContentFiles != null)
+                {
+                    foreach (StorageFile item in allContentFiles)
+                    {
+                        if (item.ParentAlbumGuid == album.Guid)
+                            items.Add(item);
+                    }
+
+                    items = items.OrderBy(item => ((StorageFile)item).DateCreated).ToList();
+                    album.InitializedContents = items;
+                }
+
+                GoTo(new AlbumVm.Key
+                {
+                    Dir = album,
+                    Items = items.ToArray(),
+                    Title = album.Name,
+                });
+                break;
+            default:
+                break;
+        }
     }
 
     public ICommand CommandSelectedChanged { get; init; }
-    private void ActionSelectedChanged(StorageFile file)
+    private void ActionSelectedChanged(IStorageElement file)
     {
         if (file.IsSelected)
         {
@@ -135,6 +174,41 @@ public class StoragePresentVm : BaseVm
             _selectedFiles.Remove(file);
         }
 
+        ShowSelectionPanel = (SelectedFilesCount > 0);
+    }
+
+    public ICommand CommandSelectionSpan { get; init; }
+    private void ActionSelectionSpan(IStorageElement file)
+    {
+        if (!file.IsSelected)
+        {
+            file.IsSelected = true;
+            _selectedFiles.Add(file);
+        }
+
+        int min = Files.Count;
+        int max = -1;
+        foreach (var item in _selectedFiles)
+        {
+            int index = Files.IndexOf(item);
+            if (index < min)
+                min = index;
+
+            if (index > max) 
+                max = index;
+        }
+
+        for (int i = min; i <= max; i++)
+        {
+            var item = Files[i];
+            if (!item.IsSelected)
+            {
+                item.IsSelected = true;
+                _selectedFiles.Add(item);
+            }
+        }
+
+        SelectedFilesCount = 1 + max - min;
         ShowSelectionPanel = (SelectedFilesCount > 0);
     }
 
@@ -166,7 +240,10 @@ public class StoragePresentVm : BaseVm
         if (SelectedFilesCount == 0)
             return;
 
-        var arr = _selectedFiles.ToArray();
+        var arr = _selectedFiles
+            .Where(x => x is ISourceFile)
+            .Cast<ISourceFile>()
+            .ToArray();
         var tags = await DirPresentVm.FindAlreadyTags(arr);
         var popup = await ShowPopup(new EditTagsVm.Key
         {
@@ -180,7 +257,6 @@ public class StoragePresentVm : BaseVm
             CommandClearSelection.Execute(null);
         }
     });
-
 
     public ICommand CommandExportDbAsEncrypt => new Cmd(async () =>
     {
@@ -224,6 +300,48 @@ public class StoragePresentVm : BaseVm
             _selectedFiles.Remove(f);
         }
     }
+
+    public ICommand CommandMoveToNewAlbum { get; private set; }
+    private async Task ActionMoveToNewAlbum(ISourceFile sourceFile)
+    {
+        var items = _selectedFiles
+            .Where(x => x is StorageFile)
+            .Cast<StorageFile>()
+            .ToArray();
+        await GoTo(new AlbumCreateVm.Key
+        {
+            Files = items,
+            StorageDir = _storage,
+        });
+    }
+
+    public ICommand CommandMoveToAlbum { get; private set; }
+    private async Task ActionMoveToAlbum(ISourceFile sourceFile)
+    {
+        var selected = _selectedFiles.Where(x => x is StorageFile)
+            .Cast<StorageFile>()
+            .ToArray();
+
+        var albums = _storage.Controller
+            .StorageFiles
+            .Where(x => x is StorageAlbum)
+            .Cast<StorageAlbum>()
+            .ToList();
+        int? select = await ShowDialogSheet("Destination", "Cancel", albums.Select(x => x.Name).ToArray());
+        if (select == null)
+            return;
+
+        using var loading = Loading();
+        var album = albums[select.Value];
+
+        foreach (var item in selected)
+        {
+            item.ParentAlbumGuid = album.Guid;
+            await _dataBaseService.UpdateContent(_storage.PathIndex, _storage.Password, item);
+        }
+        _storage.Controller.MakeAlbumMove(album, selected);
+
+    }
     #endregion commands
 
     public override async void OnConnectToNavigation()
@@ -246,7 +364,8 @@ public class StoragePresentVm : BaseVm
         if (Files is IDisposable dfiles)
             dfiles.Dispose();
 
-        _storage.FileDeleted -= _storage_FileDeleted;
+        _storage.ElementRemoved -= _storage_ElementRemoved;
+        _storage.ElementAdded -= _storage_ElementAdded;
     }
 
     public override void OnKeyComboListener(KeyPressedArgs args)
@@ -285,13 +404,13 @@ public class StoragePresentVm : BaseVm
         SetFiles(Files);
     }
 
-    private void SetFiles(IEnumerable<StorageFile> files)
+    private void SetFiles(IEnumerable<IStorageElement> files)
     {
-        IEnumerable<StorageFile> sorted;
+        IEnumerable<IStorageElement> sorted;
         switch (SelectedSortingItem)
         {
             case SortingStorageItems.ByDateIndex:
-                sorted = files.OrderByDescending(x => x.DateInitIndex);
+                sorted = files.OrderByDescending(x => x.DateCreated);
                 break;
             case SortingStorageItems.Random:
                 var rand = new Random();
@@ -302,7 +421,6 @@ public class StoragePresentVm : BaseVm
         }
 
         _files = new(sorted);
-        _filesRO = new(_files);
         if (_files.Count > 1000)
         {
             Parallel.ForEach(_files, (x) =>
@@ -316,39 +434,7 @@ public class StoragePresentVm : BaseVm
                 item.ListContext = _files;
         }
         OnPropertyChanged(nameof(Files));
-
-        //if (files is ObservableCollection<StorageFile> obs)
-        //{
-        //    _files = obs;
-        //    _filesRO = new(obs);
-        //    foreach (var item in obs)
-        //        item.ListContext = obs;
-
-        //    OnPropertyChanged(nameof(Files));
-        //}
-        //else if (files is ReadOnlyObservableCollection<StorageFile> ro)
-        //{
-        //    _filesRO = ro;
-        //    OnPropertyChanged(nameof(Files));
-        //    _files = null;
-
-        //    if (ro.Count > 1000)
-        //    {
-        //        Parallel.ForEach(ro, (x) =>
-        //        {
-        //            x.ListContext = null;
-        //        });
-        //    }
-        //    else
-        //    {
-        //        foreach (var item in ro)
-        //            item.ListContext = null;
-        //    }
-        //}
-        //else
-        //{
-        //    throw new NotSupportedException();
-        //}
+        Files = new(_files);
     }
 
     private async void Search(string value)
@@ -378,9 +464,51 @@ public class StoragePresentVm : BaseVm
         IsSearching = false;
     }
 
-    private void _storage_FileDeleted(object? sender, ISourceFile e)
+    private void _storage_ElementAdded(object? sender, object e)
     {
-        if (e is StorageFile f)
-            _files?.Remove(f);
+        if (_files == null || _files.Count == 0)
+            return;
+
+        switch (e)
+        {
+            case IStorageElement element:
+                var match = _files.FirstOrDefault(x => x.Guid == element.Guid);
+                if (match != null)
+                    return;
+
+                //_viewPlatforms.InvokeInMainThread(() =>
+                //{
+                    _files.Insert(0, element);
+                //});
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void _storage_ElementRemoved(object? sender, object e)
+    {
+        if (_files == null || _files.Count == 0) 
+            return;
+
+        switch (e)
+        {
+            case IStorageElement element:
+                var match = _files.FirstOrDefault(x => x.Guid == element.Guid);
+                if (match != null)
+                {
+                    _files.Remove(match);
+
+                    if (_selectedFiles.Remove(match))
+                    {
+                        SelectedFilesCount--;
+                        if (SelectedFilesCount == 0)
+                            ShowSelectionPanel = false;
+                    }
+                }
+                break;
+            default:
+                break;
+        }
     }
 }

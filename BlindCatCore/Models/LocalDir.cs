@@ -10,6 +10,7 @@ public class LocalDir : BaseNotify, ISourceDir
 
     public event EventHandler<ISourceFile>? FileDeleting;
     public event EventHandler<ISourceFile>? FileDeleted;
+    public event EventHandler<object>? ElementAdded;
 
     public required string DirPath { get; set; }
 

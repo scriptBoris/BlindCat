@@ -8,7 +8,7 @@ using System.Linq;
 
 namespace BlindCatAvalonia;
 
-public partial class StoragePresentView : Grid
+public partial class StoragePresentView : UserControl
 {
     public StoragePresentView()
     {

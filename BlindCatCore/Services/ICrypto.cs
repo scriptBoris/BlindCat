@@ -15,6 +15,7 @@ public interface ICrypto
     Task<AppResponse> EncryptFile(string inputFile, string outputFile, string password, EncryptionMethods from, EncryptionMethods to);
     Task EncryptFile(Stream inputStreamFile, string outputFile, string password);
     Task<AppResponse<Stream>> DecryptFile(string inputFile, string? password, CancellationToken cancel);
+    Stream? DecryptFileFast(string inputFile, string? password);
 
     string DecryptString(string encryptedText, string password);
     string EncryptString(string plainText, string password);
@@ -29,6 +30,10 @@ public interface ICrypto
 public class Crypto : ICrypto
 {
     private readonly byte[] _salt = [0x12, 0xdc, 0xab, 0x28, 0xcc, 0x6d, 0xce, 0xb9];
+    private readonly object _locker = new();
+    private PasswordDeriveBytes? secretKey;
+    private Aes? aesAlg;
+    private ICryptoTransform? cryptoTransform;
 
     public async Task<AppResponse> EncryptFile(string inputFile, string outputFile, string password, EncryptionMethods from, EncryptionMethods to)
     {
@@ -198,15 +203,50 @@ public class Crypto : ICrypto
             return AppResponse.Canceled;
         }
 
-        // костыль
-        //var cryptoStream = new CryptoStreamExt(encriptedStream, aesAlg.CreateDecryptor(), CryptoStreamMode.Read);
-        //return AppResponse.Result<Stream>(cryptoStream);
-
         // новый подход
         var remake = (long offset) => DecryptFileSync(inputFile, password, offset);
         var cryptoStream = new CryptoStream(encriptedStream, aesAlg.CreateDecryptor(), CryptoStreamMode.Read);
         var tube = new TubeStream(cryptoStream, payloadLength, remake);
         return AppResponse.Result<Stream>(tube);
+    }
+
+    public Stream? DecryptFileFast(string inputFile, string? password)
+    {
+        if (password == null)
+            return null;
+
+        lock (_locker)
+        {
+            // TODO Временно тест, срочно убрать ТЕСТ КОД
+            // Генерация ключа и IV на основе пароля
+            secretKey ??= new PasswordDeriveBytes(password, _salt);
+
+            // Создание AES-шифратора
+            if (aesAlg == null)
+            {
+                aesAlg = Aes.Create();
+                aesAlg.Key = secretKey.GetBytes(aesAlg.KeySize / 8);
+            }
+        }
+
+        // Чтение IV из начала зашифрованного файла
+        try
+        {
+            int blockSizeInBytes = aesAlg.BlockSize / 8;
+            byte[] iv = new byte[blockSizeInBytes];
+            var encriptedStream = new FileStream(inputFile, FileMode.Open, FileAccess.Read, FileShare.Read);
+            encriptedStream.Read(iv, 0, iv.Length);
+            aesAlg.IV = iv;
+
+            var cryptoTransform = aesAlg.CreateDecryptor();
+
+            var cryptoStream = new CryptoStream(encriptedStream, cryptoTransform, CryptoStreamMode.Read);
+            return cryptoStream;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     private AppResponse<CryptoStream> DecryptFileSync(string inputFile, string password, long offset)

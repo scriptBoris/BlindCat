@@ -1,11 +1,12 @@
 ﻿using BlindCatCore.Core;
 using BlindCatCore.Enums;
 using BlindCatCore.ViewModels;
+using Microsoft.VisualBasic;
 using PropertyChanged;
 
 namespace BlindCatCore.Models;
 
-public class StorageFile : BaseNotify, ISourceFile
+public class StorageFile : BaseNotify, ISourceFile, IStorageElement
 {
     public Guid Guid { get; set; }
 
@@ -35,9 +36,6 @@ public class StorageFile : BaseNotify, ISourceFile
     public bool IsTemp { get; set; }
     public MediaFormats CachedMediaFormat { get; set; } = MediaFormats.Unknown;
 
-    [Obsolete("Use CachedMediaFormat")]
-    public MediaHandlerTypes CachedHandlerType { get; set; } = MediaHandlerTypes.Undefined;
-
     /// <summary>
     /// Хранилище, в котором находится данный файл
     /// </summary>
@@ -47,16 +45,12 @@ public class StorageFile : BaseNotify, ISourceFile
     public bool IsSelected { get; set; }
     public ISourceDir SourceDir => Storage;
     public bool IsVideo => CachedMediaFormat.IsVideo();
+    public bool IsAlbum => false;
+    public int ChildrenCount => 0;
 
-    /// <summary>
-    /// Дата первой индексации
-    /// </summary>
-    public DateTime? DateInitIndex { get; set; }
+    public DateTime? DateCreated { get; set; }
 
-    /// <summary>
-    /// Дата последней индексации
-    /// </summary>
-    public DateTime? DateLastIndex { get; set; }
+    public DateTime? DateModified { get; set; }
 
     /// <summary>
     /// Коллекция в которой находится данный элемент.
@@ -64,22 +58,14 @@ public class StorageFile : BaseNotify, ISourceFile
     /// элементы менялись в рамках результата поиска
     /// </summary>
     [DoNotNotify]
-    public IList<StorageFile>? ListContext { get; set; }
+    public IList<IStorageElement>? ListContext { get; set; }
+
+    public Guid? ParentAlbumGuid { get; set; }
 
     /// <summary>
     /// Указывает на то, что данный файл зашифрован и имеет запись в БД
     /// </summary>
     public bool IsIndexed { get; set; }
-
-    /// <summary>
-    /// Есть ли у данного файла запись в БД
-    /// </summary>
-    public bool IsNoDBRow { get; set; }
-
-    /// <summary>
-    /// Есть ли у данного элемента зашифрованный файл
-    /// </summary>
-    public bool IsNoFile { get; set; }
-
-    public bool HasError => IsNoFile || IsNoDBRow;
+    public bool IsErrorNoDBRow { get; set; }
+    public bool IsErrorNoFile { get; set; }
 }

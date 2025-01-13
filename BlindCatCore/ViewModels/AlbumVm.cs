@@ -3,6 +3,7 @@ using BlindCatCore.Models;
 using BlindCatCore.PopupViewModels;
 using BlindCatCore.Services;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Windows.Input;
 
@@ -13,25 +14,30 @@ public class AlbumVm : BaseVm
     private readonly List<ISourceFile> _selectedFiles = new();
     private readonly ISourceDir _dir;
     private readonly IDeclaratives _declaratives;
+    private readonly IDataBaseService _dataBaseService;
+    private readonly ObservableCollection<ISourceFile> _files;
 
     public class Key
     {
+        public Key() { }
         public required string Title { get; set; }
         public required ISourceFile[] Items { get; set; }
         public required ISourceDir Dir { get; set; }
     }
-    public AlbumVm(Key key, IDeclaratives declaratives)
+    public AlbumVm(Key key, IDeclaratives declaratives, IDataBaseService dataBaseService)
     {
         _dir = key.Dir;
         _declaratives = declaratives;
-        Items = key.Items;
+        this._dataBaseService = dataBaseService;
+        _files = new ObservableCollection<ISourceFile>(key.Items);
+        Items = new(_files);
         Title = key.Title;
         CommandOpenItem = new Cmd<ISourceFile>(ActionOpenItem);
         CommandSelectedChanged = new Cmd<ISourceFile>(ActionSelectedChanged);
     }
 
     public bool ShowSelectionPanel { get; set; }
-    public ISourceFile[] Items { get; private set; } = [];
+    public ReadOnlyObservableCollection<ISourceFile> Items { get; }
     public int SelectedFilesCount { get; set; }
 
     #region commands
@@ -165,6 +171,44 @@ public class AlbumVm : BaseVm
             AlreadyTags = alreadyTags,
             StorageDir = storage,
         });
+    });
+
+    public ICommand CommandDeleteAlbum => new Cmd(async () =>
+    {
+        if (_dir is not StorageAlbum album)
+        {
+            await ShowError("Not available, only for storage Albums");
+            return;
+        }
+
+        int? res = await ShowDialogSheet("Deletion", "Cancel", "Delete Album only", "Delete Album and contain Files");
+        if (res == null)
+            return;
+
+        var storage = (StorageDir)album.SourceDir;
+        string pathDb = storage.PathIndex;
+        string? password = storage.Password;
+        if (password == null)
+            return;
+
+        if (res == 0)
+        {
+            using var loading = Loading();
+            foreach (StorageFile file in Items)
+            {
+                file.ParentAlbumGuid = null;
+                await _dataBaseService.UpdateContent(pathDb, password, file);
+            }
+            await _dataBaseService.DeleteAlbum(pathDb, password, album);
+
+            storage.Controller.MakeAlbumDeleted(album, Items, false);
+            await Task.Delay(1200);
+            await Close();
+        }
+        else if (res == 1)
+        {
+            // todo реализовать удаление файлов и альбома
+        }
     });
     #endregion commands
 }

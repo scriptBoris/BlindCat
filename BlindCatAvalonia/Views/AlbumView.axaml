@@ -1,0 +1,79 @@
+<Grid xmlns="https://github.com/avaloniaui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:models="using:BlindCatCore.Models"
+      xmlns:sd="using:BlindCatAvalonia.SDcontrols"
+      xmlns:vm="using:BlindCatCore.ViewModels"
+      x:Class="BlindCatAvalonia.AlbumView"
+      x:DataType="vm:AlbumVm"
+      x:Name="root"
+      d:DesignHeight="450"
+      d:DesignWidth="800"
+      sd:Scaffolt.Title="{Binding Title}"
+      mc:Ignorable="d">
+
+    <sd:Scaffolt.MenuItems>
+        <sd:MenuItem Command="{Binding CommandDeleteAlbum}"
+                     Text="Delete album"/>
+    </sd:Scaffolt.MenuItems>
+
+    <sd:VirtualGridView ItemHeight="250"
+                        ItemWidth="250"
+                        ItemsSource="{Binding Items}">
+        <sd:VirtualGridView.ItemTemplate>
+            <DataTemplate x:DataType="models:ISourceFile">
+                <sd:PreviewButton Command="{Binding #root.((vm:AlbumVm)DataContext).CommandOpenItem}"
+                                  CommandParameter="{Binding .}"
+                                  FileName="{Binding FileName}"
+                                  IsSelected="{Binding IsSelected}"
+                                  RecycleChildren="{Binding #img}"
+                                  SelectedChangedCommand="{Binding #root.((vm:AlbumVm)DataContext).CommandSelectedChanged}">
+                    <!--Tags="{Binding Tags}"-->
+
+                    <!--right mouse menus-->
+                    <sd:PreviewButton.ContextMenu>
+                        <ContextMenu>
+
+                            <!--merge to new album-->
+                            <!--<MenuItem Command="{Binding #root.((vm:StoragePresentVm)DataContext).CommandMoveToNewAlbum}"
+                                      CommandParameter="{Binding .}"
+                                      Header="Merge to new album"/>-->
+
+                            <!--move to album-->
+                            <!--<MenuItem Command="{Binding #root.((vm:StoragePresentVm)DataContext).CommandMoveToAlbum}"
+                                      CommandParameter="{Binding .}"
+                                      Header="Move to album"/>-->
+
+                            <!--delete item-->
+                            <!--<MenuItem Command="{Binding #root.((vm:StoragePresentVm)DataContext).CommandDeleteItem}"
+                                      CommandParameter="{Binding .}"
+                                      Header="Delete item(s)"/>-->
+
+                            <!--explore item-->
+                            <!--<MenuItem Command="{Binding #root.((vm:StoragePresentVm)DataContext).CommandExploreItem}"
+                                      CommandParameter="{Binding .}"
+                                      Header="Explore item"/>-->
+                        </ContextMenu>
+                    </sd:PreviewButton.ContextMenu>
+
+                    <Grid>
+                        <sd:ImagePreview x:Name="img"
+                                         Source="{Binding .}"
+                                         Stretch="UniformToFill"/>
+
+                        <Viewbox Width="120"
+                                 Height="120"
+                                 IsVisible="{Binding IsVideo}">
+                            <Canvas Width="24"
+                                    Height="24">
+                                <Path Data="M10,16.5V7.5L16,12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"
+                                      Fill="#8FFF"/>
+                            </Canvas>
+                        </Viewbox>
+                    </Grid>
+                </sd:PreviewButton>
+            </DataTemplate>
+        </sd:VirtualGridView.ItemTemplate>
+    </sd:VirtualGridView>
+</Grid>

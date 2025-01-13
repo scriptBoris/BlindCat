@@ -149,6 +149,7 @@ public class Declaratives : IDeclaratives
 
         storage.Controller = new StorageDirController
         {
+            Storage = storage,
             Password = password,
         };
         _storageService.CurrentStorage = storage;

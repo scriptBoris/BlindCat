@@ -174,6 +174,16 @@ public class PreviewButton : Button, IErrorListener, ILoadingListener, IVirtualG
         set => SetValue(SelectedChangedCommandProperty, value);
     }
 
+    // selected span command
+    public static readonly StyledProperty<ICommand?> SelectedSpanCommandProperty = AvaloniaProperty.Register<PreviewButton, ICommand?>(
+        nameof(SelectedSpanCommand)
+    );
+    public ICommand? SelectedSpanCommand
+    {
+        get => GetValue(SelectedSpanCommandProperty);
+        set => SetValue(SelectedSpanCommandProperty, value);
+    }
+
     // is selected
     public static readonly StyledProperty<bool> IsSelectedProperty = AvaloniaProperty.Register<PreviewButton, bool>(
         nameof(IsSelected),
@@ -307,6 +317,10 @@ public class PreviewButton : Button, IErrorListener, ILoadingListener, IVirtualG
         if (App.IsButtonCtrlPressed)
         {
             _check.IsChecked = !_check.IsChecked;
+        }
+        else if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            SelectedSpanCommand?.Execute(CommandParameter);
         }
         else
         {
@@ -488,6 +502,9 @@ public class PreviewButton : Button, IErrorListener, ILoadingListener, IVirtualG
 
         protected override Size ArrangeOverride(Size finalSize)
         {
+            if (finalSize.Width == 0 || finalSize.Height == 0)
+                return finalSize;
+
             double labelHeight = NameLabel.DesiredSize.Height;
             double mainHeight = finalSize.Height - labelHeight;
             var rect1 = new Rect(0, 0, finalSize.Width, mainHeight);

@@ -16,10 +16,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media.Immutable;
 using BlindCatAvalonia.MediaPlayers;
+using Avalonia.Controls.Skia;
 
 namespace BlindCatAvalonia.SDcontrols;
 
-public class ImagePreview : SKBitmapControlExt, IVirtualGridRecycle
+public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
 {
     private object? _source;
     private CancellationTokenSource _cancellationTokenSource = new();
@@ -33,7 +34,7 @@ public class ImagePreview : SKBitmapControlExt, IVirtualGridRecycle
         OpacityProperty.OverrideMetadata<ImagePreview>(m);
     }
 
-    public override Size DefaultSize => new Size(250, 250);
+    //public override Size DefaultSize => new Size(250, 250);
     public bool IsVirtualAttach { get; set; }
     public bool IsVirtualDeattach { get; set; }
 
@@ -98,12 +99,12 @@ public class ImagePreview : SKBitmapControlExt, IVirtualGridRecycle
     {
         if (_succesedLoadedSource == src)
         {
-            Debug.WriteLine($"IMAGE PREVIEW:\nNew source img: {src ?? "NULL"} (already)");
+            //Debug.WriteLine($"IMAGE PREVIEW:\nNew source img: {src ?? "NULL"} (already)");
             return;
         }
         else
         {
-            Debug.WriteLine($"IMAGE PREVIEW:\nNew source img: {src ?? "NULL"}");
+            //Debug.WriteLine($"IMAGE PREVIEW:\nNew source img: {src ?? "NULL"}");
         }
 
         _cancellationTokenSource.Cancel();
@@ -122,6 +123,9 @@ public class ImagePreview : SKBitmapControlExt, IVirtualGridRecycle
                     break;
                 case string file:
                     bmp = await LoadLocalFile(file, token);
+                    break;
+                case StorageAlbum storageAlbum:
+                    bmp = await LoadAlbumPreview(storageAlbum, token);
                     break;
                 default:
                     Bitmap = null;
@@ -154,28 +158,31 @@ public class ImagePreview : SKBitmapControlExt, IVirtualGridRecycle
         string pathThumbnail = Path.Combine(dirThumbnails, secFile.Guid.ToString());
         MediaFormats format = secFile.CachedMediaFormat;
 
-        SKBitmap resultBitmap;
+        SKBitmap? resultBitmap;
 
         // use cache
         if (File.Exists(pathThumbnail))
         {
             var sw = Stopwatch.StartNew();
-            using var crypto = await _crypto.DecryptFile(pathThumbnail, secFile.Storage.Password, cancel);
-            if (crypto.IsFault)
+            resultBitmap = await TaskExt.Run(() =>
             {
-                SetError(crypto);
-                return null;
-            }
+                using var crypto = _crypto.DecryptFileFast(pathThumbnail, secFile.Storage.Password);
+                if (crypto == null)
+                {
+                    SetError(AppResponse.Error("Fail decrypt"));
+                    return null;
+                }
+                return SKBitmap.Decode(crypto);
+            }, cancel);
             sw.StopAndCout("dencrypted preview img file (stream)");
 
-            resultBitmap = SKBitmap.Decode(crypto.Result);
-            //resultBitmap = await TaskExt.Run(() =>
-            //{
-            //    return SKBitmap.Decode(crypto.Result);
-            //}, cancel);
+            //resultBitmap = SKBitmap.Decode(crypto);
 
             if (cancel.IsCancellationRequested)
+            {
+                resultBitmap?.Dispose();
                 return null;
+            }
         }
         // create new
         else
@@ -249,6 +256,54 @@ public class ImagePreview : SKBitmapControlExt, IVirtualGridRecycle
             }
 
             return res.Result;
+        }
+    }
+
+    private async Task<SKBitmap?> LoadAlbumPreview(StorageAlbum album, CancellationToken cancel)
+    {
+        var storage = album.SourceDir as StorageDir;
+        if (storage == null)
+            return null;
+
+        if (album.Contents.Count == 0)
+            return null;
+
+        string? password = storage.Controller?.Password;
+        string? pathThumbnail = album.FilePreview;
+
+        SKBitmap? resultBitmap;
+
+        // use cache
+        if (File.Exists(pathThumbnail))
+        {
+            var sw = Stopwatch.StartNew();
+            resultBitmap = await TaskExt.Run(() =>
+            {
+                using var crypto = _crypto.DecryptFileFast(pathThumbnail, password);
+                if (crypto == null)
+                {
+                    SetError(AppResponse.Error("Fail decrypt"));
+                    return null;
+                }
+                var res = SKBitmap.Decode(crypto);
+                return res;
+            }, cancel);
+            sw.StopAndCout("dencrypted preview img file (stream)");
+
+            //resultBitmap = SKBitmap.Decode(crypto);
+
+            if (cancel.IsCancellationRequested)
+            {
+                resultBitmap?.Dispose();
+                return null;
+            }
+
+            return resultBitmap;
+        }
+        // create new
+        else
+        {
+            return null;
         }
     }
 

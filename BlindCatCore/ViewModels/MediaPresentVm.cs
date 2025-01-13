@@ -48,7 +48,16 @@ public class MediaPresentVm : BaseVm, IFileUnlocker
         switch (_sourceFile)
         {
             case StorageFile sf:
-                Controller = new StoragePresentController(this, _sourceDir as StorageDir, sf, _crypto, _storageService, _declaratives, _viewModelResolver);
+                if (_sourceDir is StorageDir storageDir)
+                {
+                    Controller = new StoragePresentController(this, storageDir, sf, _crypto, _storageService, _declaratives, _viewModelResolver);
+                }
+                else if (_sourceDir is StorageAlbum storageAlbum)
+                {
+                    var storageDir2 = (StorageDir)storageAlbum.SourceDir;
+                    Controller = new StoragePresentController(this, storageDir2, sf, _crypto, _storageService, _declaratives, _viewModelResolver);
+                }
+
                 break;
             case LocalFile lf:
                 Controller = new LocalPresentController(this, _sourceDir as LocalDir, _declaratives, _viewModelResolver);

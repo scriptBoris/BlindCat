@@ -1,16 +1,16 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace BlindCatData.Models;
 
-public class ContentStorageDb
+public class AlbumStorageDb
 {
     [Key]
     public required Guid Guid { get; set; }
-
-    /// <summary>
-    /// Должно быть зашифровано
-    /// </summary>
-    public required string MediaFormat { get; set; }
 
     /// <summary>
     /// Должно быть зашифровано
@@ -35,26 +35,19 @@ public class ContentStorageDb
     /// <summary>
     /// Должно быть зашифровано
     /// -
-    /// Дата первой индексации
+    /// Дата создания
     /// </summary>
-    public string? DateIndex { get; set; }
+    public string? DateCreated { get; set; }
 
     /// <summary>
     /// Должно быть зашифровано
     /// -
     /// Дата последней индексации
     /// </summary>
-    public string? DateLastIndex { get; set; }
+    public string? DateModified { get; set; }
 
     /// <summary>
-    /// Должно быть зашифровано
-    /// -
-    /// Способ которым был зашифрован оригинальный файл
+    /// Элемент-обложка альбома
     /// </summary>
-    public string? EncryptionType { get; set; }
-
-    /// <summary>
-    /// Внутри какого альбома находится данный элемент?
-    /// </summary>
-    public Guid? Parent { get; set; }
+    public Guid? CoverGuid { get; set; }
 }

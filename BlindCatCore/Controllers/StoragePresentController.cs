@@ -64,7 +64,7 @@ public class StoragePresentController : IMediaPresentController, INotifyProperty
         CommandEditMeta = new Cmd(ActionEditMeta);
         CommandChangeEncryption = new Cmd<EncryptionMethods>(ActionChangeEncryption);
 
-        Title = $"Storage: {storageCell.Name}";
+        Title = $"Storage: {storageCell?.Name ?? "<NULL>" }";
     }
 
     #region props

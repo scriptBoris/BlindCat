@@ -12,15 +12,18 @@ namespace BlindCatCore.Core;
 
 public class StorageDirController : IDisposable
 {
-    private readonly ObservableCollection<StorageFile> _storageFiles = new();
-    private List<string> _indexedTags = new();
+    private readonly ObservableCollection<IStorageElement> _storageFiles = new();
+    private readonly ObservableCollection<ISourceFile> _contentFiles = new();
+    private readonly List<string> _indexedTags = new();
 
     public StorageDirController()
     {
         StorageFiles = new(_storageFiles);
+        StorageContentFiles = new(_contentFiles);
     }
 
     public bool IsInitialized { get; private set; }
+    public required StorageDir Storage { get; set; }
 
     /// <summary>
     /// Есть ли пароль который ввел пользователь для расшифровки данных. 
@@ -29,25 +32,35 @@ public class StorageDirController : IDisposable
     public required string Password { get; set; }
 
     /// <summary>
-    /// Инициализированные файлы хранилища
+    /// Инициализированные файлы которые содержат непосредственно контент
+    /// (фото, видео и т.д.)
     /// </summary>
-    public ReadOnlyObservableCollection<StorageFile> StorageFiles { get; }
+    public ReadOnlyObservableCollection<ISourceFile> StorageContentFiles { get; }
+
+    /// <summary>
+    /// Инициализированные элементы хранилища которые по умолчанию видит пользователь 
+    /// при открытии хранилища
+    /// (фото, видео, альбомы и т.д.)
+    /// </summary>
+    public ReadOnlyObservableCollection<IStorageElement> StorageFiles { get; }
 
     public void Dispose()
     {
         throw new NotImplementedException();
     }
 
-    public async Task InitFiles(StorageFile[] result)
+    public async Task InitFiles(IStorageElement[] humanVisibleItems, ISourceFile[] allContents)
     {
         _storageFiles.Clear();
-        foreach (var file in result)
+        _contentFiles.Clear();
+
+        foreach (var file in humanVisibleItems)
         {
             _storageFiles.Add(file);
             file.ListContext = _storageFiles;
         }
 
-        foreach (var file in result)
+        foreach (var file in humanVisibleItems)
         {
             if (file.Tags.Length == 0)
                 continue;
@@ -60,6 +73,11 @@ public class StorageDirController : IDisposable
                         _indexedTags.Add(tag);
                 }
             });
+        }
+
+        foreach(var file in allContents)
+        {
+            _contentFiles.Add(file);
         }
         IsInitialized = true;
     }
@@ -165,7 +183,7 @@ public class StorageDirController : IDisposable
         });
     }
 
-    private bool HaveTags(string[] searchWords, StorageFile file)
+    private bool HaveTags(string[] searchWords, IStorageElement file)
     {
         if (file.Tags.Length == 0)
             return false;
@@ -189,7 +207,7 @@ public class StorageDirController : IDisposable
         return false;
     }
 
-    private bool HaveAnyArtist(string[] words, StorageFile file)
+    private bool HaveAnyArtist(string[] words, IStorageElement file)
     {
         if (file.Artist == null)
             return false;
@@ -202,7 +220,7 @@ public class StorageDirController : IDisposable
         return false;
     }
 
-    public async Task<ObservableCollection<StorageFile>?> Search(string text, CancellationToken cancel)
+    public async Task<ObservableCollection<IStorageElement>?> Search(string text, CancellationToken cancel)
     {
         var res = await TaskExt.Run(() =>
         {
@@ -214,7 +232,7 @@ public class StorageDirController : IDisposable
                     HaveTags(searchWords, x)
                 );
 
-            var res = new ObservableCollection<StorageFile>(machedItems);
+            var res = new ObservableCollection<IStorageElement>(machedItems);
             //foreach (var item in res)
             //    item.ListContext = res;
             return res;
@@ -248,6 +266,55 @@ public class StorageDirController : IDisposable
     public void DeleteFile(StorageFile file)
     {
         _storageFiles.Remove(file);
+        Storage.OnElementRemoved(file);
+    }
+
+    public void MakeAlbum(StorageAlbum album, IEnumerable<ISourceFile> files)
+    {
+        foreach (var file in files)
+        {
+            _storageFiles.Remove((IStorageElement)file);
+            Storage.OnElementRemoved(file);
+        }
+
+        _storageFiles.Insert(0, album);
+        Storage.OnElementAdded(album);
+    }
+
+    public void MakeAlbumDeleted(StorageAlbum album, IEnumerable<ISourceFile> files, bool isPermoment)
+    {
+        if (isPermoment)
+        {
+            foreach (var file in files)
+            {
+                _storageFiles.Remove((IStorageElement)file);
+                _contentFiles.Remove(file);
+                Storage.OnElementRemoved(file);
+            }
+
+            _storageFiles.Remove(album);
+            Storage.OnElementRemoved(album);
+        }
+        else
+        {
+            foreach (var file in files)
+            {
+                _storageFiles.Insert(0, (IStorageElement)file);
+                Storage.OnElementAdded(file);
+            }
+
+            _storageFiles.Remove(album);
+            Storage.OnElementRemoved(album);
+        }
+    }
+
+    public void MakeAlbumMove(StorageAlbum album, StorageFile[] selected)
+    {
+        foreach (var item in selected)
+        {
+            _storageFiles.Remove(item);
+            Storage.OnElementRemoved(item);
+        }
     }
 
     public StorageFile? GetNext(StorageFile by)
@@ -257,11 +324,25 @@ public class StorageDirController : IDisposable
             return null;
 
         int index = slice.IndexOf(by);
-        int next = index + 1;
-        if (next > slice.Count - 1)
-            next = 0;
+        int offset = 0;
+        while (true)
+        {
+            int next = index + 1 + offset;
+            if (next > slice.Count - 1)
+                next = 0;
 
-        return slice[next];
+            var res = slice[next];
+            if (res is StorageFile result)
+            {
+                return result;
+            }
+            else
+            {
+                offset++;
+                if (next == offset)
+                    return null;
+            }
+        }
     }
 
     public StorageFile? GetPrevious(StorageFile by)
@@ -271,76 +352,23 @@ public class StorageDirController : IDisposable
             return null;
 
         int index = slice.IndexOf(by);
-        int prev = index - 1;
-        if (prev < 0)
-            prev = slice.Count - 1;
-
-        return slice[prev];
-    }
-
-    [Obsolete("Нужно ли?")]
-    public class DependedObsList : ObservableCollection<StorageFile>, IDisposable
-    {
-        private ObservableCollection<StorageFile> _dpendency;
-
-        public DependedObsList(IList<StorageFile> by, ObservableCollection<StorageFile> dpendency)
+        int offset = 0;
+        while (true)
         {
-            _dpendency = dpendency;
-            _dpendency.CollectionChanged += OnCollectionChanged;
+            int prev = index - 1;
+            if (prev < 0)
+                prev = slice.Count - 1;
 
-            foreach (var item in by)
+            var res = slice[prev];
+            if (res is StorageFile result)
             {
-                var clone = new StorageFile
-                {
-                    FilePath = item.FilePath,
-                    Storage = item.Storage,
-                    Artist = item.Artist,
-                    CachedMediaFormat = item.CachedMediaFormat,
-                    DateInitIndex = item.DateInitIndex,
-                    DateLastIndex = item.DateLastIndex,
-                    Description = item.Description,
-                    FilePreview = item.FilePreview,
-                    Guid = item.Guid,
-                    Id = item.Id,
-                    IsIndexed = item.IsIndexed,
-                    IsNoDBRow = item.IsNoDBRow,
-                    IsNoFile = item.IsNoFile,
-                    IsSelected = item.IsSelected,
-                    IsTemp = item.IsTemp,
-                    Name = item.Name,
-                    Tags = item.Tags,
-                    ListContext = by,
-                };
-                this.Add(clone);
+                return result;
             }
-        }
-
-        private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        {
-            switch (e.Action)
+            else
             {
-                case NotifyCollectionChangedAction.Add:
-                    break;
-                case NotifyCollectionChangedAction.Remove:
-                    var rm = (StorageFile)e.OldItems![0]!;
-                    this.Remove(rm);
-                    break;
-                case NotifyCollectionChangedAction.Replace:
-                    break;
-                case NotifyCollectionChangedAction.Move:
-                    break;
-                case NotifyCollectionChangedAction.Reset:
-                    break;
-                default:
-                    break;
+                offset--;
+                if (prev == offset) return null;
             }
-        }
-
-        public void Dispose()
-        {
-            _dpendency.CollectionChanged -= OnCollectionChanged;
-            _dpendency = null!;
-            GC.SuppressFinalize(this);
         }
     }
 }

@@ -9,6 +9,8 @@ public class StorageDir : BaseNotify, ISourceDir
 {
     public event EventHandler<ISourceFile>? FileDeleted;
     public event EventHandler<ISourceFile>? FileDeleting;
+    public event EventHandler<object>? ElementRemoved;
+    public event EventHandler<object>? ElementAdded;
 
     /// <summary>
     /// Идентификатор
@@ -85,5 +87,15 @@ public class StorageDir : BaseNotify, ISourceDir
     public void Remove(ISourceFile file)
     {
         throw new NotSupportedException();
+    }
+
+    public void OnElementRemoved(object element)
+    {
+        ElementRemoved?.Invoke(this, element);
+    }
+
+    public void OnElementAdded(object element)
+    {
+        ElementAdded?.Invoke(this, element);
     }
 }

@@ -462,4 +462,33 @@ public class DirPresentVm : BaseVm
 
         return list.ToArray();
     }
+
+    public static async Task<TagCount[]> FindAlreadyTags(IStorageElement[] selectedFiles)
+    {
+        var list = new List<TagCount>();
+        await Task.Run(() =>
+        {
+            foreach (var item in selectedFiles)
+            {
+                foreach (string tag in item.Tags)
+                {
+                    var m = list.FirstOrDefault(x => string.Equals(x.TagName, tag, StringComparison.OrdinalIgnoreCase));
+                    if (m != null)
+                    {
+                        m.Count++;
+                    }
+                    else
+                    {
+                        list.Add(new TagCount
+                        {
+                            TagName = tag,
+                            Count = 1,
+                        });
+                    }
+                }
+            }
+        });
+
+        return list.ToArray();
+    }
 }
