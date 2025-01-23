@@ -30,7 +30,7 @@ public class MenuItemTemplateSelector : AvaloniaObject, IDataTemplate
 
     public Avalonia.Controls.Control? Build(object? param)
     {
-        if (param is not MenuItem menu)
+        if (param is not ScaffoldMenu menu)
             throw new InvalidCastException();
 
         if (menu.CustomView != null)
@@ -41,7 +41,7 @@ public class MenuItemTemplateSelector : AvaloniaObject, IDataTemplate
 
     public bool Match(object? param)
     {
-        if (param is not MenuItem menu)
+        if (param is not ScaffoldMenu menu)
             throw new InvalidCastException();
 
         if (menu.CustomView == null && DefaultTemplate == null)

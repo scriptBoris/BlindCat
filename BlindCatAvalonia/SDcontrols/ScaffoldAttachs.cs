@@ -79,22 +79,22 @@ public class Scaffolt : AvaloniaObject
     }
 
     // menu items
-    public static readonly AttachedProperty<AvaloniaList<MenuItem>> MenuItemsProperty = AvaloniaProperty.RegisterAttached<Scaffolt, Interactive, AvaloniaList<MenuItem>>(
+    public static readonly AttachedProperty<AvaloniaList<ScaffoldMenu>> MenuItemsProperty = AvaloniaProperty.RegisterAttached<Scaffolt, Interactive, AvaloniaList<ScaffoldMenu>>(
         "MenuItems",
         null!
     );
-    public static AvaloniaList<MenuItem> GetMenuItems(Interactive element)
+    public static AvaloniaList<ScaffoldMenu> GetMenuItems(Interactive element)
     {
         var items = element.GetValue(MenuItemsProperty);
         if (items == null)
         {
-            items = new AvaloniaList<MenuItem>();
+            items = new AvaloniaList<ScaffoldMenu>();
             element.SetValue(MenuItemsProperty, items);
         }
         return items;
     }
 
-    public static void SetMenuItems(Interactive element, AvaloniaList<MenuItem> value) => element.SetValue(MenuItemsProperty, value);
+    public static void SetMenuItems(Interactive element, AvaloniaList<ScaffoldMenu> value) => element.SetValue(MenuItemsProperty, value);
 
     // custom nav bar
     public static readonly AttachedProperty<Control?> CustomNavigationBarProperty = AvaloniaProperty.RegisterAttached<Scaffolt, Interactive, Control?>(

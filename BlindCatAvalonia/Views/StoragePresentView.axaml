@@ -1,90 +1,105 @@
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:enums="using:BlindCatCore.Enums"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:models="using:BlindCatCore.Models"
-             xmlns:muxc="using:Avalonia.Controls.Primitives"
-             xmlns:panels="using:BlindCatAvalonia.Panels"
-             xmlns:sd="using:BlindCatAvalonia.SDcontrols"
-             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
-             xmlns:vm="using:BlindCatCore.ViewModels"
-             x:Class="BlindCatAvalonia.StoragePresentView"
-             x:DataType="vm:StoragePresentVm"
-             x:Name="root"
-             d:DesignHeight="50"
-             d:DesignWidth="50"
-             sd:Scaffolt.Subtitle="{Binding StorageName}"
-             sd:Scaffolt.Title="Encrypted Storage"
-             mc:Ignorable="d">
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:enums="using:BlindCatCore.Enums"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:BlindCatCore.Models"
+    xmlns:muxc="using:Avalonia.Controls.Primitives"
+    xmlns:panels="using:BlindCatAvalonia.Panels"
+    xmlns:sd="using:BlindCatAvalonia.SDcontrols"
+    xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+    xmlns:vm="using:BlindCatCore.ViewModels"
+    x:Class="BlindCatAvalonia.StoragePresentView"
+    x:DataType="vm:StoragePresentVm"
+    x:Name="root"
+    d:DesignHeight="50"
+    d:DesignWidth="50"
+    sd:Scaffolt.Subtitle="{Binding StorageName}"
+    sd:Scaffolt.Title="Encrypted Storage"
+    mc:Ignorable="d">
 
     <sd:Scaffolt.MenuItems>
-        <sd:MenuItem Command="{Binding CommandSearchMode}"
-                     Text="Search"/>
-        <sd:MenuItem Command="{Binding CommandEditStorage}"
-                     Text="Edit storage"/>
+        <sd:ScaffoldMenu
+            Command="{Binding CommandSearchMode}"
+            Text="Search"/>
+        <sd:ScaffoldMenu
+            Command="{Binding CommandEditStorage}"
+            Text="Edit storage"/>
 
-        <sd:MenuItem Command="{Binding CommandExportDbAsEncrypt}"
-                     Text="Export db file"/>
+        <sd:ScaffoldMenu
+            Command="{Binding CommandExportDbAsEncrypt}"
+            Text="Export db file"/>
 
-        <sd:MenuItem>
-            <sd:MenuItem.CustomView>
+        <sd:ScaffoldMenu>
+            <sd:ScaffoldMenu.CustomView>
                 <DataTemplate>
-                    <sd:DropdownButton ItemsSource="{x:Type enums:SortingStorageItems}"
-                                       Placeholder="Select sorting"
-                                       SelectedItem="{Binding #root.((vm:StoragePresentVm)DataContext).SelectedSortingItem}"/>
+                    <sd:DropdownButton
+                        ItemsSource="{x:Type enums:SortingStorageItems}"
+                        Placeholder="Select sorting"
+                        SelectedItem="{Binding #root.((vm:StoragePresentVm)DataContext).SelectedSortingItem}"/>
                 </DataTemplate>
-            </sd:MenuItem.CustomView>
-        </sd:MenuItem>
+            </sd:ScaffoldMenu.CustomView>
+        </sd:ScaffoldMenu>
     </sd:Scaffolt.MenuItems>
 
     <sd:Scaffolt.CustomNavigationBar>
-        <Grid Margin="5"
-              ColumnDefinitions="Auto, *"
-              IsVisible="{Binding ShowCustomNavBar}">
+        <Grid
+            Margin="5"
+            ColumnDefinitions="Auto, *"
+            IsVisible="{Binding ShowCustomNavBar}">
 
             <!--cancel custom panel-->
-            <Button Padding="5"
-                    VerticalAlignment="Center"
-                    Background="Transparent"
-                    Command="{Binding CommandCloseCustomNavBar}"
-                    CornerRadius="5">
-                <Canvas Width="24"
-                        Height="24">
-                    <Path Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"
-                          Fill="#FFF"/>
+            <Button
+                Padding="5"
+                VerticalAlignment="Center"
+                Background="Transparent"
+                Command="{Binding CommandCloseCustomNavBar}"
+                CornerRadius="5">
+                <Canvas
+                    Width="24"
+                    Height="24">
+                    <Path
+                        Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"
+                        Fill="#FFF"/>
                 </Canvas>
             </Button>
 
-            <sd:ZStackLayout Grid.Column="1"
-                             Margin="5,0">
+            <sd:ZStackLayout
+                Grid.Column="1"
+                Margin="5,0">
                 <!--search panel-->
-                <panels:SearchPanel IsVisible="{Binding ShowSearchPanel}"
-                                    SearchText="{Binding SearchText}"
-                                    SortingItemsSource="{x:Type enums:SortingStorageItems}"
-                                    SortingSelectedItem="{Binding SelectedSortingItem}"/>
+                <panels:SearchPanel
+                    IsVisible="{Binding ShowSearchPanel}"
+                    SearchText="{Binding SearchText}"
+                    SortingItemsSource="{x:Type enums:SortingStorageItems}"
+                    SortingSelectedItem="{Binding SelectedSortingItem}"/>
 
                 <!--selection panel-->
-                <sd:StackLayout HorizontalAlignment="Stretch"
-                                VerticalAlignment="Stretch"
-                                IsVisible="{Binding ShowSelectionPanel}"
-                                Orientation="Horizontal"
-                                Spacing="5">
-                    <TextBlock Margin="0,0,0,0"
-                               HorizontalAlignment="Stretch"
-                               VerticalAlignment="Center"
-                               FontSize="15">
+                <sd:StackLayout
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    IsVisible="{Binding ShowSelectionPanel}"
+                    Orientation="Horizontal"
+                    Spacing="5">
+                    <TextBlock
+                        Margin="0,0,0,0"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Center"
+                        FontSize="15">
                         <Run Text="Selected files"/>
                         <Run Text="{Binding SelectedFilesCount}"/>
                     </TextBlock>
 
-                    <Button Command="{Binding CommandSelectAll}"
-                            Theme="{StaticResource Button}">
+                    <Button
+                        Command="{Binding CommandSelectAll}"
+                        Theme="{StaticResource Button}">
                         Select all
                     </Button>
 
-                    <Button Command="{Binding CommandEditTags}"
-                            Theme="{StaticResource Button}">
+                    <Button
+                        Command="{Binding CommandEditTags}"
+                        Theme="{StaticResource Button}">
                         Edit tags
                     </Button>
                 </sd:StackLayout>
@@ -92,89 +107,105 @@
         </Grid>
     </sd:Scaffolt.CustomNavigationBar>
 
-    <sd:ScrollViewerExt AllowAutoHide="False"
-                        VerticalScrollBarVisibility="Visible">
+    <sd:ScrollViewerExt
+        AllowAutoHide="False"
+        VerticalScrollBarVisibility="Visible">
         <ItemsRepeater ItemsSource="{Binding Files}">
             <ItemsRepeater.Layout>
-                <UniformGridLayout ItemsStretch="Uniform"
-                                   MinItemHeight="250"
-                                   MinItemWidth="250"/>
+                <UniformGridLayout
+                    ItemsStretch="Uniform"
+                    MinItemHeight="250"
+                    MinItemWidth="250"/>
             </ItemsRepeater.Layout>
 
             <ItemsRepeater.ItemTemplate>
                 <DataTemplate x:DataType="models:IStorageElement">
-                    <sd:PreviewButton MaxWidth="500"
-                                      MaxHeight="500"
-                                      Command="{Binding #root.((vm:StoragePresentVm)DataContext).CommandOpenItem}"
-                                      CommandParameter="{Binding .}"
-                                      FileName="{Binding FileName}"
-                                      IsSelected="{Binding IsSelected}"
-                                      RecycleChildren="{Binding #img}"
-                                      SelectedChangedCommand="{Binding #root.((vm:StoragePresentVm)DataContext).CommandSelectedChanged}"
-                                      SelectedSpanCommand="{Binding #root.((vm:StoragePresentVm)DataContext).CommandSelectionSpan}"
-                                      Tags="{Binding Tags}">
+                    <sd:PreviewButton
+                        MaxWidth="500"
+                        MaxHeight="500"
+                        Command="{Binding #root.((vm:StoragePresentVm)DataContext).CommandOpenItem}"
+                        CommandParameter="{Binding .}"
+                        FileName="{Binding FileName}"
+                        IsSelected="{Binding IsSelected}"
+                        RecycleChildren="{Binding #img}"
+                        SelectedChangedCommand="{Binding #root.((vm:StoragePresentVm)DataContext).CommandSelectedChanged}"
+                        SelectedSpanCommand="{Binding #root.((vm:StoragePresentVm)DataContext).CommandSelectionSpan}"
+                        Tags="{Binding Tags}">
                         <!--right mouse menus-->
                         <sd:PreviewButton.ContextMenu>
                             <ContextMenu>
                                 <!--merge to new album-->
-                                <MenuItem Command="{Binding #root.((vm:StoragePresentVm)DataContext).CommandMoveToNewAlbum}"
-                                          CommandParameter="{Binding .}"
-                                          Header="Merge to new album"/>
+                                <MenuItem
+                                    Command="{Binding #root.((vm:StoragePresentVm)DataContext).CommandMoveToNewAlbum}"
+                                    CommandParameter="{Binding .}"
+                                    Header="Merge to new album"/>
                                 <!--move to album-->
-                                <MenuItem Command="{Binding #root.((vm:StoragePresentVm)DataContext).CommandMoveToAlbum}"
-                                          CommandParameter="{Binding .}"
-                                          Header="Move to album"/>
+                                <MenuItem
+                                    Command="{Binding #root.((vm:StoragePresentVm)DataContext).CommandMoveToAlbum}"
+                                    CommandParameter="{Binding .}"
+                                    Header="Move to album"/>
                                 <!--delete item-->
-                                <MenuItem Command="{Binding #root.((vm:StoragePresentVm)DataContext).CommandDeleteItem}"
-                                          CommandParameter="{Binding .}"
-                                          Header="Delete item(s)"/>
+                                <MenuItem
+                                    Command="{Binding #root.((vm:StoragePresentVm)DataContext).CommandDeleteItems}"
+                                    CommandParameter="{Binding .}"
+                                    Header="Delete item(s)"/>
                                 <!--explore item-->
-                                <MenuItem Command="{Binding #root.((vm:StoragePresentVm)DataContext).CommandExploreItem}"
-                                          CommandParameter="{Binding .}"
-                                          Header="Explore item"/>
+                                <MenuItem
+                                    Command="{Binding #root.((vm:StoragePresentVm)DataContext).CommandExploreItem}"
+                                    CommandParameter="{Binding .}"
+                                    Header="Explore item"/>
                             </ContextMenu>
                         </sd:PreviewButton.ContextMenu>
 
                         <Grid>
-                            <sd:ImagePreview x:Name="img"
-                                             Source="{Binding .}"
-                                             Stretch="UniformToFill"/>
+                            <sd:ImagePreview
+                                x:Name="img"
+                                Source="{Binding .}"
+                                Stretch="UniformToFill"/>
 
-                            <Viewbox Width="120"
-                                     Height="120"
-                                     IsVisible="{Binding IsVideo}">
-                                <Canvas Width="24"
-                                        Height="24">
-                                    <Path Data="M10,16.5V7.5L16,12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"
-                                          Fill="#8FFF"/>
+                            <Viewbox
+                                Width="120"
+                                Height="120"
+                                IsVisible="{Binding IsVideo}">
+                                <Canvas
+                                    Width="24"
+                                    Height="24">
+                                    <Path
+                                        Data="M10,16.5V7.5L16,12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"
+                                        Fill="#8FFF"/>
                                 </Canvas>
                             </Viewbox>
 
-                            <Border Width="90"
-                                    Height="90"
-                                    HorizontalAlignment="Left"
-                                    VerticalAlignment="Top"
-                                    Background="#A000"
-                                    CornerRadius="0,0,10,0"
-                                    IsVisible="{Binding IsAlbum}">
-                                <TextBlock HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"
-                                           FontSize="22"
-                                           FontWeight="SemiBold"
-                                           Foreground="White"
-                                           Text="{Binding ChildrenCount, StringFormat='+{0}'}"/>
+                            <Border
+                                Width="130"
+                                Height="130"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Background="#222"
+                                CornerRadius="10"
+                                IsVisible="{Binding IsAlbum}"
+                                Opacity="0.5">
+                                <TextBlock
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    FontSize="48"
+                                    FontWeight="SemiBold"
+                                    Foreground="White"
+                                    Text="{Binding ChildrenCount, StringFormat='+{0}'}"/>
                             </Border>
 
-                            <TextBlock FontSize="16"
-                                       Foreground="Red"
-                                       IsVisible="{Binding IsErrorNoFile}">
+                            <TextBlock
+                                FontSize="16"
+                                Foreground="Red"
+                                IsVisible="{Binding IsErrorNoFile}">
                                 No file
                             </TextBlock>
 
 
-                            <TextBlock FontSize="16"
-                                       Foreground="Red"
-                                       IsVisible="{Binding IsErrorNoDBRow}">
+                            <TextBlock
+                                FontSize="16"
+                                Foreground="Red"
+                                IsVisible="{Binding IsErrorNoDBRow}">
                                 Not indexed
                             </TextBlock>
 

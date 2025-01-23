@@ -28,17 +28,17 @@ public partial class NavBar : Grid
         InitializeComponent();
         Height = NAVBARHEIGHT;
         titleLabel.Text = "TEST TITLE";
-        menuItems.ItemsSource = new AvaloniaList<MenuItem>
+        menuItems.ItemsSource = new AvaloniaList<ScaffoldMenu>
         {
-            new MenuItem
+            new ScaffoldMenu
             {
                 Text = "Item 1",
             },
-            new MenuItem
+            new ScaffoldMenu
             {
                 Text = "Settings",
             },
-            new MenuItem
+            new ScaffoldMenu
             {
                 Text = "Clear",
             },

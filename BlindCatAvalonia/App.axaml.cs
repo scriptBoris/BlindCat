@@ -88,6 +88,7 @@ public partial class App : Application
             .RegisterNav<StoragePresentVm, StoragePresentView>()
             //.RegisterNav<StorageEditVm, StorageEditView>()
             .RegisterNav<AlbumVm, AlbumView>()
+            .RegisterNav<StorageAlbumVm, StorageAlbumView>()
             .RegisterNav<AlbumCreateVm, AlbumCreateView>()
             ;
 
@@ -95,6 +96,7 @@ public partial class App : Application
         services.RegisterNav<EditTagsVm, EditTagsView>();
         services.RegisterNav<SaveFilesVm, SaveFilesView>();
         services.RegisterNav<EditMetaVm, EditMetaView>();
+        services.RegisterNav<SelectStorageAlbumVm, SelectStorageAlbumView>();
 
         services.RegisterNav<FileInfoPanelVm, FileInfoPanel>();
         services.RegisterNav<StorageFileInfoPanelVm, StorageFileInfoPanel>();

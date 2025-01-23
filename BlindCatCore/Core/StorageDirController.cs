@@ -1,8 +1,10 @@
 ﻿using BlindCatCore.Extensions;
 using BlindCatCore.Models;
+using BlindCatCore.Services;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.IO;
 using System.Linq;
 using System.Text.Json.Serialization;
 using static BlindCatCore.Services.IViewModelResolver;
@@ -75,7 +77,7 @@ public class StorageDirController : IDisposable
             });
         }
 
-        foreach(var file in allContents)
+        foreach (var file in allContents)
         {
             _contentFiles.Add(file);
         }
@@ -263,10 +265,12 @@ public class StorageDirController : IDisposable
         _storageFiles.Add(newStorage);
     }
 
-    public void DeleteFile(StorageFile file)
+    public void OnFileDeleted(StorageFile file, bool invokeEvent)
     {
         _storageFiles.Remove(file);
-        Storage.OnElementRemoved(file);
+
+        if (invokeEvent)
+            Storage.OnElementRemoved(file);
     }
 
     public void MakeAlbum(StorageAlbum album, IEnumerable<ISourceFile> files)
@@ -308,12 +312,46 @@ public class StorageDirController : IDisposable
         }
     }
 
+    public async Task DeleteAlbum(StorageAlbum album, 
+        IEnumerable<Guid> guidFiles, 
+        IStorageService storageService,
+        IDataBaseService dataBaseService,
+        bool invokeEvents)
+    {
+        var files = _contentFiles
+            .Where(x => guidFiles.Contains(((StorageFile)x).Guid))
+            .Cast<StorageFile>();
+
+        string pathDb = Storage.PathIndex;
+        string password = Storage.Password;
+        await dataBaseService.DeleteAlbum(pathDb, password, album);
+
+        foreach (var file in files)
+        {
+            await storageService.DeleteFile(file);
+        }
+
+        if (invokeEvents)
+        {
+            Storage.OnElementRemoved(album);
+        }
+    }
+
     public void MakeAlbumMove(StorageAlbum album, StorageFile[] selected)
     {
         foreach (var item in selected)
         {
             _storageFiles.Remove(item);
             Storage.OnElementRemoved(item);
+        }
+    }
+
+    public void MakeAlbumRemove(StorageAlbum album, IEnumerable<StorageFile> removed)
+    {
+        foreach (var item in removed)
+        {
+            _storageFiles.Insert(0, item);
+            Storage.OnElementAdded(item);
         }
     }
 

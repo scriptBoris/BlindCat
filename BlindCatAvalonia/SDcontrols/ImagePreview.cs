@@ -27,11 +27,21 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
     private ICrypto _crypto = null!;
     private IFFMpegService _ffmpeg = null!;
     private object? _succesedLoadedSource;
+    private AppResponse? _error;
 
     static ImagePreview()
     {
         var m = new StyledPropertyMetadata<double>();
         OpacityProperty.OverrideMetadata<ImagePreview>(m);
+
+    }
+
+    public ImagePreview()
+    {
+        OpacityMask = new ImmutableSolidColorBrush(Colors.Gray);
+        _crypto = this.DI<ICrypto>();
+        _ffmpeg = this.DI<IFFMpegService>();
+        //UpdateImg(Source);
     }
 
     //public override Size DefaultSize => new Size(250, 250);
@@ -45,12 +55,20 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
         (self) => self._source,
         (self, nev) =>
         {
-            self._source = nev;
+            if (nev == null)
+                return;
 
-            if (self.IsLoaded)
-            {
-                self.UpdateImg(nev);
-            }
+            self._source = nev;
+            self.UpdateImg(nev);
+
+            //if (self.IsLoaded)
+            //{
+            //    self.UpdateImg(nev);
+            //}
+            //else
+            //{
+
+            //}
         }
     );
     public object? Source
@@ -77,10 +95,10 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
 
         if (!IsVirtualAttach)
         {
-            OpacityMask = new ImmutableSolidColorBrush(Colors.Gray);
-            _crypto = this.DI<ICrypto>();
-            _ffmpeg = this.DI<IFFMpegService>();
-            UpdateImg(Source);
+            //OpacityMask = new ImmutableSolidColorBrush(Colors.Gray);
+            //_crypto = this.DI<ICrypto>();
+            //_ffmpeg = this.DI<IFFMpegService>();
+            //UpdateImg(Source);
         }
     }
 
@@ -100,7 +118,7 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
         if (_succesedLoadedSource == src)
         {
             //Debug.WriteLine($"IMAGE PREVIEW:\nNew source img: {src ?? "NULL"} (already)");
-            return;
+            //return;
         }
         else
         {
@@ -128,14 +146,19 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
                     bmp = await LoadAlbumPreview(storageAlbum, token);
                     break;
                 default:
-                    Bitmap = null;
-                    return;
+                    throw new InvalidOperationException();
             }
 
             if (bmp != null)
             {
                 Bitmap = bmp;
                 _succesedLoadedSource = src;
+            }
+            else
+            {
+                if (!token.IsCancellationRequested)
+                {
+                }
             }
         }
         finally
@@ -145,11 +168,8 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
         }
     }
 
-    private async Task<SKBitmap?> LoadStorageFile(StorageFile? secFile, CancellationToken cancel)
+    private async Task<SKBitmap?> LoadStorageFile(StorageFile secFile, CancellationToken cancel)
     {
-        if (secFile == null)
-            return null;
-
         string? password = secFile.Storage.Password;
         string dirThumbnails = Path.Combine(secFile.Storage.Path, "tmls");
         if (!Directory.Exists(dirThumbnails))
@@ -158,25 +178,39 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
         string pathThumbnail = Path.Combine(dirThumbnails, secFile.Guid.ToString());
         MediaFormats format = secFile.CachedMediaFormat;
 
-        SKBitmap? resultBitmap;
+        SKBitmap? resultBitmap = null;
+        AppResponse? error = null;
 
         // use cache
         if (File.Exists(pathThumbnail))
         {
             var sw = Stopwatch.StartNew();
-            resultBitmap = await TaskExt.Run(() =>
+            resultBitmap = await Task.Run(() =>
             {
                 using var crypto = _crypto.DecryptFileFast(pathThumbnail, secFile.Storage.Password);
                 if (crypto == null)
                 {
-                    SetError(AppResponse.Error("Fail decrypt"));
+                    error = AppResponse.Error("Fail decrypt");
                     return null;
                 }
-                return SKBitmap.Decode(crypto);
-            }, cancel);
-            sw.StopAndCout("dencrypted preview img file (stream)");
 
-            //resultBitmap = SKBitmap.Decode(crypto);
+                SKBitmap? result = null;
+                try
+                {
+                    result = SKBitmap.Decode(crypto);
+                    if (result == null)
+                    {
+                        error = AppResponse.Error("Fail decode", 912758);
+                    }
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    error = AppResponse.Error("Fail decode", 912759, ex);
+                    return null;
+                }
+            });
+            sw.StopAndCout("dencrypted preview img file (stream)");
 
             if (cancel.IsCancellationRequested)
             {
@@ -193,19 +227,24 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
                 Password = password,
             };
             var decRes = await _ffmpeg.SaveThumbnail(secFile.FilePath, format, pathThumbnail, enc, password);
-            if (decRes.IsFault)
-            {
-                SetError(decRes);
-                return null;
-            }
-
+            
             if (cancel.IsCancellationRequested)
                 return null;
 
-            format = decRes.Result.EncodedFormat;
-            resultBitmap = (SKBitmap)decRes.Result.Bitmap;
-            //resultBitmap = SaveCacheThumbnail(pathThumbnail, originImage, _crypto, secFile.Storage.Password!);
+            if (decRes.IsFault)
+            {
+                error = decRes;
+            }
+
+            if (decRes.IsSuccess) 
+            {
+                format = decRes.Result.EncodedFormat;
+                resultBitmap = decRes.Result.Bitmap as SKBitmap;
+            }
         }
+
+        if (error != null)
+            resultBitmap = HandleError(resultBitmap, error);
 
         secFile.CachedMediaFormat = format;
         return resultBitmap;
@@ -213,17 +252,20 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
 
     private async Task<SKBitmap?> LoadLocalFile(string filePath, CancellationToken cancel)
     {
+        AppResponse? error = null;
+        SKBitmap? resultBmp = null;
+
         var mf = MediaPresentVm.ResolveFormat(filePath);
         if (mf.IsVideo())
         {
             var res = await _ffmpeg.DecodePicture(filePath, mf, new System.Drawing.Size(250, 250), cancel);
             if (res.IsFault)
             {
-                SetError(res);
+                error = res;
                 return null;
             }
 
-            return (SKBitmap)res.Result.Bitmap;
+            resultBmp = (SKBitmap)res.Result.Bitmap;
         }
         else
         {
@@ -250,12 +292,18 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
                 return null;
 
             if (res.IsFault)
-            {
-                SetError(res);
-                return null;
-            }
+                error = res;
 
-            return res.Result;
+            resultBmp = res.Result;
+        }
+
+        if (error != null)
+        {
+            return HandleError(resultBmp, error);
+        }
+        else
+        {
+            return resultBmp;
         }
     }
 
@@ -265,13 +313,11 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
         if (storage == null)
             return null;
 
-        if (album.Contents.Count == 0)
-            return null;
-
         string? password = storage.Controller?.Password;
         string? pathThumbnail = album.FilePreview;
 
-        SKBitmap? resultBitmap;
+        SKBitmap? resultBitmap = null;
+        AppResponse? error = null;
 
         // use cache
         if (File.Exists(pathThumbnail))
@@ -282,7 +328,7 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
                 using var crypto = _crypto.DecryptFileFast(pathThumbnail, password);
                 if (crypto == null)
                 {
-                    SetError(AppResponse.Error("Fail decrypt"));
+                    error = AppResponse.Error("Fail decrypt");
                     return null;
                 }
                 var res = SKBitmap.Decode(crypto);
@@ -297,13 +343,20 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
                 resultBitmap?.Dispose();
                 return null;
             }
-
-            return resultBitmap;
         }
         // create new
         else
         {
-            return null;
+            // todo сделать создание превью
+        }
+
+        if (error != null)
+        {
+            return HandleError(resultBitmap, error);
+        }
+        else
+        {
+            return resultBitmap;
         }
     }
 
@@ -337,23 +390,37 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
         }
     }
 
-    private void SetError(AppResponse err)
+    private SKBitmap HandleError(SKBitmap? bitmap, AppResponse error)
     {
-        if (err.IsCanceled)
-            return;
-
-        IErrorListener? match = null;
-        var p = this.Parent;
-        while (match == null && p != null)
+        string msg = error.Description;
+        if (bitmap == null)
         {
-            if (p is IErrorListener c)
-                match = c;
-            else
-                p = p.Parent;
+            bitmap = new SKBitmap(250, 250);
         }
 
-        match?.SetError(err);
-        Debug.WriteLine(err.MessageForLog);
+        using var canvas = new SKCanvas(bitmap);
+        using var paint = new SKPaint
+        {
+            Color = SKColors.Red,
+            IsAntialias = false,
+            TextSize = 14,
+            TextAlign = SKTextAlign.Center,
+            Typeface = SKTypeface.Default,
+        };
+
+        // Вычисляем размеры текста
+        var textWidth = paint.MeasureText(msg);
+        var textBounds = new SKRect();
+
+        paint.MeasureText(msg, ref textBounds);
+
+        // Центрируем текст
+        float x = bitmap.Width / 2f;
+        float y = (bitmap.Height / 2f) - textBounds.MidY;
+
+        // Рисуем текст
+        canvas.DrawText(msg, x, y, paint);
+        return bitmap;
     }
 
     private void Loading(bool flag)

@@ -36,10 +36,10 @@ public class VideoPlayerSkia : Control, IMediaPlayer
 {
     private readonly object _lock = new();
     private readonly IVideoSurface _surface;
-    private IFFMpegService _ffmpeg = null!;
-    private ICrypto _crypto = null!;
-    private IStorageService _storageService = null!;
-    private IAudioService _audioService = null!;
+    private readonly IFFMpegService _ffmpeg;
+    private readonly ICrypto _crypto;
+    private readonly IStorageService _storageService;
+    private readonly IAudioService _audioService;
 
     private double progress;
     private double progressTick;

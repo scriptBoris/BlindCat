@@ -361,6 +361,27 @@ public class DataBaseService : IDataBaseService
         }
     }
 
+    public async Task<AppResponse> UpdateAlbum(string pathDb, string password, StorageAlbum album)
+    {
+        using var db = BlindCatDbContext.JustConnect(pathDb);
+        try
+        {
+            var match = await db.Albums.FindAsync(album.Guid);
+            if (match == null)
+                return AppResponse.Error("Fail to update album entity db because no find");
+
+            MapAlbum(album, match, password);
+
+            db.Albums.Update(match);
+            await db.SaveChangesAsync();
+            return AppResponse.OK;
+        }
+        catch (Exception ex)
+        {
+            return AppResponse.Error("Fail to update album entity db", 44114, ex);
+        }
+    }
+
     public async Task<bool> CheckPasswordValid(string pathIndex, string? password)
     {
         if (!Path.Exists(pathIndex))

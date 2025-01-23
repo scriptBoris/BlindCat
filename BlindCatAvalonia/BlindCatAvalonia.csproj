@@ -40,6 +40,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="Views\StorageAlbumView.axaml.cs">
+      <SubType>Code</SubType>
+      <DependentUpon>StorageAlbumView.axaml</DependentUpon>
+    </Compile>
     <Compile Update="Views\Panels\StorageFileInfoPanel.axaml.cs">
       <DependentUpon>StorageFileInfoPanel.axaml</DependentUpon>
     </Compile>
@@ -59,6 +63,12 @@
       <DependentUpon>%(Filename)</DependentUpon>
     </Compile>
     <Compile Remove="Tools\Win32Native.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaXaml Update="Views\StorageAlbumView.axaml">
+      <SubType>Designer</SubType>
+    </AvaloniaXaml>
   </ItemGroup>
 
 </Project>

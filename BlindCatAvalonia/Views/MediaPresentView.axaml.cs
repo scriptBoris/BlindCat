@@ -127,10 +127,10 @@ public partial class MediaPresentView : Grid, MediaPresentVm.IPresentedView
         {
             _vm = vm;
 
-            var col = new Avalonia.Collections.AvaloniaList<SDcontrols.MenuItem>();
+            var col = new Avalonia.Collections.AvaloniaList<ScaffoldMenu>();
             foreach (var item in vm.TopButtons)
             {
-                col.Add(new SDcontrols.MenuItem
+                col.Add(new ScaffoldMenu
                 {
                     Command = item.Command,
                     Text = item.Name,

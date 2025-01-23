@@ -25,4 +25,5 @@ public interface IDataBaseService
     Task<AppResponse> Decrypt(string dataBasePath, string password);
     Task<AppResponse> CreateAlbum(string dataBasePath, string password, StorageAlbum album);
     Task<AppResponse> DeleteAlbum(string pathDb, string password, StorageAlbum album);
+    Task<AppResponse> UpdateAlbum(string pathDb, string password, StorageAlbum album);
 }

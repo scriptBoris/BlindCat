@@ -48,7 +48,7 @@ public class StoragePresentVm : BaseVm
         CommandSelectedChanged = new Cmd<IStorageElement>(ActionSelectedChanged);
         CommandSelectionSpan = new Cmd<IStorageElement>(ActionSelectionSpan);
         CommandExploreItem = new Cmd<ISourceFile>(ActionExploreItem);
-        CommandDeleteItem = new Cmd<ISourceFile>(ActionDeleteItem);
+        CommandDeleteItems = new Cmd<IStorageElement>(ActionDeleteItems);
         CommandMoveToNewAlbum = new Cmd<ISourceFile>(ActionMoveToNewAlbum);
         CommandMoveToAlbum = new Cmd<ISourceFile>(ActionMoveToAlbum);
         StorageName = _storage.Name;
@@ -148,11 +148,13 @@ public class StoragePresentVm : BaseVm
                     album.InitializedContents = items;
                 }
 
-                GoTo(new AlbumVm.Key
+                GoTo(new StorageAlbumVm.Key
                 {
-                    Dir = album,
-                    Items = items.ToArray(),
-                    Title = album.Name,
+                    Storage = _storage,
+                    Album = album,
+                    //Dir = album,
+                    //Items = items.ToArray(),
+                    //Title = album.Name,
                 });
                 break;
             default:
@@ -285,20 +287,66 @@ public class StoragePresentVm : BaseVm
         }
     }
 
-    public ICommand CommandDeleteItem { get; private set; }
-    private async Task ActionDeleteItem(ISourceFile file)
+    public ICommand CommandDeleteItems { get; private set; }
+    private async Task ActionDeleteItems(IStorageElement element)
     {
-        var res = await _declaratives.DeclarativeDeleteFile(this, file);
-        if (res.IsFault)
+        if (_storage.Controller == null)
         {
-            await HandleError(res);
+            await ShowError("Storage is closed");
             return;
         }
 
-        if (file is StorageFile f)
+        bool sure = false;
+        if (_selectedFiles.Count == 1)
         {
-            _selectedFiles.Remove(f);
+            sure = await ShowMessage("Deletion file",
+                $"You are sure to delete {element.Name}",
+                "DELETE",
+                "Cancel");
         }
+        else
+        {
+            sure = await ShowMessage("Deletion files",
+                $"You are sure to delete {_selectedFiles.Count} files from current storage?",
+                "DELETE",
+                "Cancel");
+        }
+
+        if (!sure)
+            return;
+
+        using var busy = Loading();
+
+        if (!element.IsSelected)
+            _selectedFiles.Add(element);
+        
+        foreach (var item in _selectedFiles)
+        {
+            if (item is StorageAlbum album)
+            {
+                await _storage.Controller.DeleteAlbum(
+                    album, 
+                    album.Contents, 
+                    _storageService, 
+                    _dataBaseService, 
+                    false);
+            }
+            else if (item is StorageFile filef)
+            {
+                await _storageService.DeleteFile(filef);
+                _storage.Controller.OnFileDeleted(filef, false);
+            }
+            else
+            {
+                throw new NotSupportedException();
+            }
+        }
+
+        _selectedFiles.Clear();
+        SelectedFilesCount = 0;
+        ShowSelectionPanel = false;
+        
+        SetFiles(Files);
     }
 
     public ICommand CommandMoveToNewAlbum { get; private set; }
@@ -322,17 +370,17 @@ public class StoragePresentVm : BaseVm
             .Cast<StorageFile>()
             .ToArray();
 
-        var albums = _storage.Controller
-            .StorageFiles
-            .Where(x => x is StorageAlbum)
-            .Cast<StorageAlbum>()
-            .ToList();
-        int? select = await ShowDialogSheet("Destination", "Cancel", albums.Select(x => x.Name).ToArray());
-        if (select == null)
+        var vm = await ShowPopup(new SelectStorageAlbumVm.Key
+        {
+            StorageDir = _storage,
+        });
+
+        var res = await vm.GetResult();
+        if (res == null)
             return;
 
         using var loading = Loading();
-        var album = albums[select.Value];
+        var album = res;
 
         foreach (var item in selected)
         {
@@ -340,7 +388,6 @@ public class StoragePresentVm : BaseVm
             await _dataBaseService.UpdateContent(_storage.PathIndex, _storage.Password, item);
         }
         _storage.Controller.MakeAlbumMove(album, selected);
-
     }
     #endregion commands
 
@@ -433,7 +480,6 @@ public class StoragePresentVm : BaseVm
             foreach (var item in _files)
                 item.ListContext = _files;
         }
-        OnPropertyChanged(nameof(Files));
         Files = new(_files);
     }
 
@@ -476,10 +522,7 @@ public class StoragePresentVm : BaseVm
                 if (match != null)
                     return;
 
-                //_viewPlatforms.InvokeInMainThread(() =>
-                //{
-                    _files.Insert(0, element);
-                //});
+                _files.Insert(0, element);
                 break;
             default:
                 break;

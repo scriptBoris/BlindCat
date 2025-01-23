@@ -8,12 +8,13 @@
     xmlns:panels="using:BlindCatAvalonia.Panels"
     xmlns:sd="using:BlindCatAvalonia.SDcontrols"
     xmlns:vm="using:BlindCatCore.ViewModels"
-    x:Class="BlindCatAvalonia.AlbumView"
-    x:DataType="vm:AlbumVm"
+    x:Class="BlindCatAvalonia.StorageAlbumView"
+    x:DataType="vm:StorageAlbumVm"
     x:Name="root"
     d:DesignHeight="450"
     d:DesignWidth="800"
-    sd:Scaffolt.Title="{Binding Title}"
+    sd:Scaffolt.Subtitle="{Binding StorageName, StringFormat='Storage: {0}'}"
+    sd:Scaffolt.Title="{Binding AlbumName}"
     ColumnDefinitions="*, Auto"
     mc:Ignorable="d">
 
@@ -24,10 +25,18 @@
                     <sd:DropdownButton
                         ItemsSource="{x:Type enums:SortingAlbumItems}"
                         Placeholder="Select sorting"
-                        SelectedItem="{Binding #root.((vm:AlbumVm)DataContext).SelectedSortingItem}"/>
+                        SelectedItem="{Binding #root.((vm:StorageAlbumVm)DataContext).SelectedSortingItem}"/>
                 </DataTemplate>
             </sd:ScaffoldMenu.CustomView>
         </sd:ScaffoldMenu>
+
+        <sd:ScaffoldMenu
+            Command="{Binding CommandDeleteAlbum}"
+            Text="Delete album"/>
+
+        <sd:ScaffoldMenu
+            Command="{Binding CommandShowEditPanel}"
+            Text="Edit album"/>
     </sd:Scaffolt.MenuItems>
 
     <sd:Scaffolt.CustomNavigationBar>
@@ -82,6 +91,11 @@
                         Theme="{StaticResource Button}">
                         Select all
                     </Button>
+
+                    <!--<Button Command="{Binding CommandEditTags}"
+                            Theme="{StaticResource Button}">
+                        Edit tags
+                    </Button>-->
                 </sd:StackLayout>
             </sd:ZStackLayout>
         </Grid>
@@ -99,36 +113,44 @@
             </ItemsRepeater.Layout>
 
             <ItemsRepeater.ItemTemplate>
-                <DataTemplate x:DataType="models:ISourceFile">
+                <DataTemplate x:DataType="models:StorageAlbumItem">
                     <sd:PreviewButton
                         MaxWidth="500"
                         MaxHeight="500"
-                        Command="{Binding #root.((vm:AlbumVm)DataContext).CommandOpenItem}"
+                        Command="{Binding #root.((vm:StorageAlbumVm)DataContext).CommandOpenItem}"
                         CommandParameter="{Binding .}"
-                        FileName="{Binding FileName}"
-                        IsSelected="{Binding IsSelected}"
+                        FileName="{Binding StorageFile.Name}"
+                        IsSelected="{Binding StorageFile.IsSelected}"
                         RecycleChildren="{Binding #img}"
-                        SelectedChangedCommand="{Binding #root.((vm:AlbumVm)DataContext).CommandSelectedChanged}"
-                        SelectedSpanCommand="{Binding #root.((vm:AlbumVm)DataContext).CommandSelectionSpan}">
+                        SelectedChangedCommand="{Binding #root.((vm:StorageAlbumVm)DataContext).CommandSelectedChanged}"
+                        SelectedSpanCommand="{Binding #root.((vm:StorageAlbumVm)DataContext).CommandSelectionSpan}">
                         <!--right mouse menus-->
-                        <!--<sd:PreviewButton.ContextMenu>
+                        <sd:PreviewButton.ContextMenu>
                             <ContextMenu>
-                                <MenuItem Command="{Binding #root.((vm:AlbumVm)DataContext).CommandRemoveFromAlbum}"
-                                          CommandParameter="{Binding .}"
-                                          Header="Remove from Album"/>
+                                <MenuItem
+                                    Command="{Binding #root.((vm:StorageAlbumVm)DataContext).CommandSetCover}"
+                                    CommandParameter="{Binding .}"
+                                    Header="Set as Cover"/>
+
+                                <MenuItem
+                                    Command="{Binding #root.((vm:StorageAlbumVm)DataContext).CommandRemoveFromAlbum}"
+                                    CommandParameter="{Binding .}"
+                                    Header="Remove from Album"/>
                             </ContextMenu>
-                        </sd:PreviewButton.ContextMenu>-->
+                        </sd:PreviewButton.ContextMenu>
 
                         <Grid>
+                            <!--preview image-->
                             <sd:ImagePreview
                                 x:Name="img"
-                                Source="{Binding .}"
+                                Source="{Binding StorageFile}"
                                 Stretch="UniformToFill"/>
 
+                            <!--is video icon-->
                             <Viewbox
                                 Width="120"
                                 Height="120"
-                                IsVisible="{Binding IsVideo}">
+                                IsVisible="{Binding StorageFile.IsVideo}">
                                 <Canvas
                                     Width="24"
                                     Height="24">
@@ -143,4 +165,42 @@
             </ItemsRepeater.ItemTemplate>
         </ItemsRepeater>
     </sd:ScrollViewerExt>
+
+    <!--edit panel-->
+    <sd:StackLayout
+        Grid.Column="1"
+        Width="250"
+        Padding="10"
+        IsVisible="{Binding ShowEditPanel}"
+        Orientation="Vertical">
+
+        <!--name-->
+        <TextBlock
+            VerticalAlignment="Top"
+            Classes="label">
+            Name
+        </TextBlock>
+        <TextBox
+            VerticalAlignment="Top"
+            Text="{Binding Form.Name.RawValue}"
+            Watermark="Required"/>
+
+
+        <!--description-->
+        <TextBlock
+            VerticalAlignment="Top"
+            Classes="label">
+            Description
+        </TextBlock>
+        <TextBox
+            VerticalAlignment="Top"
+            Text="{Binding Form.Description.RawValue}"
+            Watermark="No data"/>
+
+        <Button>
+            <TextBlock>
+                Save
+            </TextBlock>
+        </Button>
+    </sd:StackLayout>
 </Grid>

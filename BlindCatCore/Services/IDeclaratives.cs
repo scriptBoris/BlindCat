@@ -289,29 +289,8 @@ public class Declaratives : IDeclaratives
         return AppResponse.OK;
     }
 
-    public async Task<AppResponse> DeclarativeDeleteFile(BaseVm vm, ISourceFile file)
+    public Task<AppResponse> DeclarativeDeleteFile(BaseVm vm, ISourceFile file)
     {
-        if (file.TempStorageFile!.Storage?.Controller == null)
-        {
-            return AppResponse.Error("Storage is closed");
-        }
-
-        bool del = await vm.ShowMessage("Deletion file",
-            $"You are sure to delete {file.TempStorageFile!.Name}",
-            "DELETE",
-            "Cancel");
-        if (!del)
-            return AppResponse.Canceled;
-
-        if (file is not StorageFile f)
-            return AppResponse.Error($"parameter {nameof(file)} is not StorageFile");
-
-        using var busy = vm.Loading("deletetion", "File deletion in progress...", null);
-        var delRes = await _storageService.DeleteFile(file);
-        if (delRes.IsFault)
-            return delRes;
-
-        file.TempStorageFile.Storage.Controller.DeleteFile(f);
-        return AppResponse.OK;
+        throw new NotImplementedException();
     }
 }

@@ -1,11 +1,14 @@
 ﻿using BlindCatCore.Core;
+using BlindCatCore.Enums;
 using BlindCatCore.Models;
 using BlindCatCore.PopupViewModels;
 using BlindCatCore.Services;
+using PropertyChanged;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Windows.Input;
+using ValidatorSam;
 
 namespace BlindCatCore.ViewModels;
 
@@ -16,10 +19,12 @@ public class AlbumVm : BaseVm
     private readonly IDeclaratives _declaratives;
     private readonly IDataBaseService _dataBaseService;
     private readonly ObservableCollection<ISourceFile> _files;
+    private readonly StorageAlbum? _album;
 
     public class Key
     {
         public Key() { }
+        public StorageAlbum? Album { get; set; }
         public required string Title { get; set; }
         public required ISourceFile[] Items { get; set; }
         public required ISourceDir Dir { get; set; }
@@ -28,17 +33,23 @@ public class AlbumVm : BaseVm
     {
         _dir = key.Dir;
         _declaratives = declaratives;
-        this._dataBaseService = dataBaseService;
+        _dataBaseService = dataBaseService;
+        _album = key.Album;
         _files = new ObservableCollection<ISourceFile>(key.Items);
         Items = new(_files);
         Title = key.Title;
         CommandOpenItem = new Cmd<ISourceFile>(ActionOpenItem);
         CommandSelectedChanged = new Cmd<ISourceFile>(ActionSelectedChanged);
+        CommandSelectionSpan = new Cmd<ISourceFile>(ActionSelectionSpan);
     }
 
+    [DependsOn(nameof(ShowSelectionPanel))]
+    public bool ShowCustomNavBar => ShowSelectionPanel;
     public bool ShowSelectionPanel { get; set; }
+    public bool ShowEditPanel { get; set; }
     public ReadOnlyObservableCollection<ISourceFile> Items { get; }
     public int SelectedFilesCount { get; set; }
+    public SortingAlbumItems SelectedSortingItem { get; set; }
 
     #region commands
     public ICommand CommandOpenItem { get; private set; }
@@ -65,6 +76,41 @@ public class AlbumVm : BaseVm
             _selectedFiles.Remove(file);
         }
 
+        ShowSelectionPanel = (SelectedFilesCount > 0);
+    }
+
+    public ICommand CommandSelectionSpan { get; init; }
+    private void ActionSelectionSpan(ISourceFile file)
+    {
+        if (!file.IsSelected)
+        {
+            file.IsSelected = true;
+            _selectedFiles.Add(file);
+        }
+
+        int min = Items.Count;
+        int max = -1;
+        foreach (var item in _selectedFiles)
+        {
+            int index = Items.IndexOf(item);
+            if (index < min)
+                min = index;
+
+            if (index > max)
+                max = index;
+        }
+
+        for (int i = min; i <= max; i++)
+        {
+            var item = Items[i];
+            if (!item.IsSelected)
+            {
+                item.IsSelected = true;
+                _selectedFiles.Add(item);
+            }
+        }
+
+        SelectedFilesCount = 1 + max - min;
         ShowSelectionPanel = (SelectedFilesCount > 0);
     }
 
@@ -95,120 +141,15 @@ public class AlbumVm : BaseVm
         ShowSelectionPanel = true;
     });
 
-    public ICommand CommandSaveSelectedItems => new Cmd(async () =>
+    public ICommand CommandCloseCustomNavBar => new Cmd(() =>
     {
-        if (_selectedFiles.Count == 0)
-            return;
-
-        using var loading = Loading();
-        var files = _selectedFiles.ToArray();
-        var broker = new ProgressBroker<ISourceFile>((progress, item) =>
+        foreach (var item in _selectedFiles)
         {
-            if (item is LocalFile local)
-            {
-                InvokeInMainThread(() =>
-                {
-                    _selectedFiles.Remove(local);
-                    _dir.Remove(local);
-                    SelectedFilesCount = _selectedFiles.Count;
-                    ShowSelectionPanel = _selectedFiles.Count > 0;
-                });
-            }
-        });
-        var res = await _declaratives.SaveLocalFilesWithPopup(this, files, broker, null);
-        if (res.IsFault)
-        {
-            await HandleError(res);
-            return;
+            item.IsSelected = false; 
         }
-
-        if (files.Length > 5)
-            await ShowMessage("Success", $"All of {files.Length} files was move to secure storage", "OK");
-    });
-
-    public ICommand CommandAddTags => new Cmd(async () =>
-    {
-        using var loading = Loading();
-        var select = await _declaratives.DeclarativeSelectStorage(this, autoInit: true);
-        if (select.IsFault)
-        {
-            await HandleError(select);
-            return;
-        }
-
-        var storage = select.Result;
-        DirPresentVm.UpdateSelectedFiles(storage, _selectedFiles);
-
-        var selectedFiles = _selectedFiles.ToArray();
-        var alreadyTags = await DirPresentVm.FindAlreadyTags(selectedFiles);
-
-        await ShowPopup(new EditTagsVm.Key
-        {
-            SelectedFiles = selectedFiles,
-            StorageDir = storage,
-            AlreadyTags = alreadyTags,
-        });
-    });
-
-    public ICommand CommandRemoveTags => new Cmd(async () =>
-    {
-        using var loading = Loading();
-        var select = await _declaratives.DeclarativeSelectStorage(this, autoInit: true);
-        if (select.IsFault)
-        {
-            await HandleError(select);
-            return;
-        }
-
-        var storage = select.Result;
-        DirPresentVm.UpdateSelectedFiles(storage, _selectedFiles);
-
-        var selectedFiles = _selectedFiles.ToArray();
-        var alreadyTags = await DirPresentVm.FindAlreadyTags(selectedFiles);
-        await ShowPopup(new RemoveTagsVm.Key
-        {
-            SelectedFiles = _selectedFiles.ToArray(),
-            AlreadyTags = alreadyTags,
-            StorageDir = storage,
-        });
-    });
-
-    public ICommand CommandDeleteAlbum => new Cmd(async () =>
-    {
-        if (_dir is not StorageAlbum album)
-        {
-            await ShowError("Not available, only for storage Albums");
-            return;
-        }
-
-        int? res = await ShowDialogSheet("Deletion", "Cancel", "Delete Album only", "Delete Album and contain Files");
-        if (res == null)
-            return;
-
-        var storage = (StorageDir)album.SourceDir;
-        string pathDb = storage.PathIndex;
-        string? password = storage.Password;
-        if (password == null)
-            return;
-
-        if (res == 0)
-        {
-            using var loading = Loading();
-            foreach (StorageFile file in Items)
-            {
-                file.ParentAlbumGuid = null;
-                await _dataBaseService.UpdateContent(pathDb, password, file);
-            }
-            await _dataBaseService.DeleteAlbum(pathDb, password, album);
-
-            storage.Controller.MakeAlbumDeleted(album, Items, false);
-            await Task.Delay(1200);
-            await Close();
-        }
-        else if (res == 1)
-        {
-            // todo реализовать удаление файлов и альбома
-        }
+        _selectedFiles.Clear();
+        ShowSelectionPanel = false;
+        SelectedFilesCount = 0;
     });
     #endregion commands
 }

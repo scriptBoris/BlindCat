@@ -1,4 +1,5 @@
-﻿using BlindCatCore.Enums;
+﻿using BlindCatCore.Core;
+using BlindCatCore.Enums;
 using PropertyChanged;
 using System;
 using System.Collections.Generic;
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace BlindCatCore.Models;
 
-public class StorageAlbum : IStorageElement, ISourceDir
+public class StorageAlbum : BaseNotify, IStorageElement, ISourceDir
 {
     private readonly object _locker = new();
 
@@ -35,7 +36,7 @@ public class StorageAlbum : IStorageElement, ISourceDir
     public bool IsIndexed { get; set; }
     public bool IsErrorNoDBRow { get; set; }
     public bool IsErrorNoFile { get; set; }
-    public List<Guid> Contents { get; } = new();
+    public List<Guid> Contents { get; set; } = new();
     public IList<ISourceFile>? InitializedContents { get; set; }
     public int ChildrenCount => Contents.Count;
 
@@ -96,7 +97,10 @@ public class StorageAlbum : IStorageElement, ISourceDir
         {
             if (FilePreview == null)
             {
-                FilePreview = matchFile.FilePreview;
+                if (CoverGuid == null)
+                    FilePreview = matchFile.FilePreview;
+                else if (CoverGuid == matchFile.Guid)
+                    FilePreview = matchFile.FilePreview;
             }
             Contents.Add(matchFile.Guid);
         }

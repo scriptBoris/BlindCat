@@ -10,18 +10,18 @@ using System.Windows.Input;
 
 namespace BlindCatAvalonia.SDcontrols;
 
-public class MenuItem : AvaloniaObject
+public class ScaffoldMenu : AvaloniaObject
 {
     private string? _text;
     private ICommand? _command;
     private DataTemplate? _customView;
 
-    public MenuItem()
+    public ScaffoldMenu()
     {
     }
 
     // text
-    public static readonly DirectProperty<MenuItem, string?> TextProperty = AvaloniaProperty.RegisterDirect<MenuItem, string?>(
+    public static readonly DirectProperty<ScaffoldMenu, string?> TextProperty = AvaloniaProperty.RegisterDirect<ScaffoldMenu, string?>(
         nameof(Text),
         (self) => self._text,
         (self, nev) =>
@@ -36,7 +36,7 @@ public class MenuItem : AvaloniaObject
     }
 
     // command
-    public static readonly DirectProperty<MenuItem, ICommand?> CommandProperty = AvaloniaProperty.RegisterDirect<MenuItem, ICommand?>(
+    public static readonly DirectProperty<ScaffoldMenu, ICommand?> CommandProperty = AvaloniaProperty.RegisterDirect<ScaffoldMenu, ICommand?>(
         nameof(Text),
         (self) => self._command,
         (self, nev) =>
@@ -51,7 +51,7 @@ public class MenuItem : AvaloniaObject
     }
 
     // custom view
-    public static readonly DirectProperty<MenuItem, DataTemplate?> CustomViewProperty = AvaloniaProperty.RegisterDirect<MenuItem, DataTemplate?>(
+    public static readonly DirectProperty<ScaffoldMenu, DataTemplate?> CustomViewProperty = AvaloniaProperty.RegisterDirect<ScaffoldMenu, DataTemplate?>(
         nameof(CustomView),
         (self) => self._customView,
         (self, nev) =>
