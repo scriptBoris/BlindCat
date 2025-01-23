@@ -1,57 +1,63 @@
-<Grid xmlns="https://github.com/avaloniaui"
-      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-      xmlns:models="using:BlindCatCore.Models"
-      xmlns:sd="using:BlindCatAvalonia.SDcontrols"
-      xmlns:vm="using:BlindCatCore.ViewModels"
-      x:Class="BlindCatAvalonia.AlbumCreateView"
-      x:DataType="vm:AlbumCreateVm"
-      x:Name="root"
-      d:DesignHeight="450"
-      d:DesignWidth="800"
-      sd:Scaffolt.Title="New album"
-      x:CompileBindings="True"
-      ColumnDefinitions="*, 200"
-      mc:Ignorable="d">
+<Grid
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:BlindCatCore.Models"
+    xmlns:sd="using:BlindCatAvalonia.SDcontrols"
+    xmlns:vm="using:BlindCatCore.ViewModels"
+    x:Class="BlindCatAvalonia.AlbumCreateView"
+    x:DataType="vm:AlbumCreateVm"
+    x:Name="root"
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    x:CompileBindings="True"
+    ColumnDefinitions="*, 200"
+    Scaffold.Title="New album"
+    mc:Ignorable="d">
 
-    <sd:StackLayout Grid.Column="1"
-                    Padding="10"
-                    Background="#333"
-                    Orientation="Vertical"
-                    Spacing="10">
+    <sd:StackLayout
+        Grid.Column="1"
+        Padding="10"
+        Background="#333"
+        Orientation="Vertical"
+        Spacing="10">
         <!--name-->
         <StackPanel VerticalAlignment="Top">
             <TextBlock Classes="label">Name</TextBlock>
-            <TextBox VerticalAlignment="Top"
-                     Text="{Binding Name.RawValue}"
-                     Watermark="Required"/>
+            <TextBox
+                VerticalAlignment="Top"
+                Text="{Binding Name.RawValue}"
+                Watermark="Required"/>
         </StackPanel>
 
         <!--create-->
-        <Button HorizontalAlignment="Right"
-                VerticalAlignment="Top"
-                Command="{Binding CommandAccept}"
-                Theme="{StaticResource ButtonAccent}">
+        <Button
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Command="{Binding CommandAccept}"
+            Theme="{StaticResource ButtonAccent}">
             <TextBlock Margin="7,0">
                 Create
             </TextBlock>
         </Button>
     </sd:StackLayout>
 
-    <sd:VirtualGridView Grid.Column="0"
-                        ItemHeight="250"
-                        ItemWidth="250"
-                        ItemsSource="{Binding Files}">
+    <sd:VirtualGridView
+        Grid.Column="0"
+        ItemHeight="250"
+        ItemWidth="250"
+        ItemsSource="{Binding Files}">
         <sd:VirtualGridView.ItemTemplate>
             <DataTemplate x:DataType="models:StorageFile">
-                <sd:PreviewButton Command="{Binding #root.((vm:StoragePresentVm)DataContext).CommandOpenItem}"
-                                  CommandParameter="{Binding .}"
-                                  FileName="{Binding FileName}"
-                                  IsSelected="{Binding IsSelected}"
-                                  RecycleChildren="{Binding #img}"
-                                  SelectedChangedCommand="{Binding #root.((vm:StoragePresentVm)DataContext).CommandSelectedChanged}"
-                                  Tags="{Binding Tags}">
+                <sd:PreviewButton
+                    Command="{Binding #root.((vm:StoragePresentVm)DataContext).CommandOpenItem}"
+                    CommandParameter="{Binding .}"
+                    FileName="{Binding FileName}"
+                    IsSelected="{Binding IsSelected}"
+                    RecycleChildren="{Binding #img}"
+                    SelectedChangedCommand="{Binding #root.((vm:StoragePresentVm)DataContext).CommandSelectedChanged}"
+                    Tags="{Binding Tags}">
 
                     <!--right mouse menus-->
                     <!--<sd:PreviewButton.ContextMenu>
@@ -87,30 +93,36 @@
                     </sd:PreviewButton.ContextMenu>-->
 
                     <Grid>
-                        <sd:ImagePreview x:Name="img"
-                                         Source="{Binding .}"
-                                         Stretch="UniformToFill"/>
+                        <sd:ImagePreview
+                            x:Name="img"
+                            Source="{Binding .}"
+                            Stretch="UniformToFill"/>
 
-                        <Viewbox Width="120"
-                                 Height="120"
-                                 IsVisible="{Binding IsVideo}">
-                            <Canvas Width="24"
-                                    Height="24">
-                                <Path Data="M10,16.5V7.5L16,12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"
-                                      Fill="#8FFF"/>
+                        <Viewbox
+                            Width="120"
+                            Height="120"
+                            IsVisible="{Binding IsVideo}">
+                            <Canvas
+                                Width="24"
+                                Height="24">
+                                <Path
+                                    Data="M10,16.5V7.5L16,12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"
+                                    Fill="#8FFF"/>
                             </Canvas>
                         </Viewbox>
 
-                        <TextBlock FontSize="16"
-                                   Foreground="Red"
-                                   IsVisible="{Binding IsErrorNoFile}">
+                        <TextBlock
+                            FontSize="16"
+                            Foreground="Red"
+                            IsVisible="{Binding IsErrorNoFile}">
                             No file
                         </TextBlock>
 
 
-                        <TextBlock FontSize="16"
-                                   Foreground="Red"
-                                   IsVisible="{Binding IsErrorNoDBRow}">
+                        <TextBlock
+                            FontSize="16"
+                            Foreground="Red"
+                            IsVisible="{Binding IsErrorNoDBRow}">
                             Not indexed
                         </TextBlock>
 

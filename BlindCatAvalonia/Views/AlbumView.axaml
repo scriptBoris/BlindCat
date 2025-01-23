@@ -13,24 +13,24 @@
     x:Name="root"
     d:DesignHeight="450"
     d:DesignWidth="800"
-    sd:Scaffolt.Title="{Binding Title}"
     ColumnDefinitions="*, Auto"
+    Scaffold.Title="{Binding Title}"
     mc:Ignorable="d">
 
-    <sd:Scaffolt.MenuItems>
-        <sd:ScaffoldMenu>
-            <sd:ScaffoldMenu.CustomView>
+    <Scaffold.MenuItems>
+        <ScaffoldMenu>
+            <ScaffoldMenu.CustomView>
                 <DataTemplate>
                     <sd:DropdownButton
                         ItemsSource="{x:Type enums:SortingAlbumItems}"
                         Placeholder="Select sorting"
                         SelectedItem="{Binding #root.((vm:AlbumVm)DataContext).SelectedSortingItem}"/>
                 </DataTemplate>
-            </sd:ScaffoldMenu.CustomView>
-        </sd:ScaffoldMenu>
-    </sd:Scaffolt.MenuItems>
+            </ScaffoldMenu.CustomView>
+        </ScaffoldMenu>
+    </Scaffold.MenuItems>
 
-    <sd:Scaffolt.CustomNavigationBar>
+    <Scaffold.CustomNavigationBar>
         <Grid
             Margin="5"
             ColumnDefinitions="Auto, *"
@@ -85,7 +85,7 @@
                 </sd:StackLayout>
             </sd:ZStackLayout>
         </Grid>
-    </sd:Scaffolt.CustomNavigationBar>
+    </Scaffold.CustomNavigationBar>
 
     <sd:ScrollViewerExt
         AllowAutoHide="False"

@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
 
-namespace BlindCatAvalonia.SDcontrols;
+namespace BlindCatAvalonia.SDcontrols.Scaffold.GlobalXmlns;
 
 public class ScaffoldMenu : AvaloniaObject
 {

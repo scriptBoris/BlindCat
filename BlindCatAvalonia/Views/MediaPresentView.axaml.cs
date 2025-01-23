@@ -25,6 +25,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using BlindCatAvalonia.SDcontrols.Scaffold.GlobalXmlns;
 
 namespace BlindCatAvalonia;
 
@@ -136,7 +137,7 @@ public partial class MediaPresentView : Grid, MediaPresentVm.IPresentedView
                     Text = item.Name,
                 });
             }
-            Scaffolt.SetMenuItems(this, col);
+            SDcontrols.Scaffold.GlobalXmlns.Scaffold.SetMenuItems(this, col);
         }
     }
 

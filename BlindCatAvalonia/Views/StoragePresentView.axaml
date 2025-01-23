@@ -15,35 +15,35 @@
     x:Name="root"
     d:DesignHeight="50"
     d:DesignWidth="50"
-    sd:Scaffolt.Subtitle="{Binding StorageName}"
-    sd:Scaffolt.Title="Encrypted Storage"
+    Scaffold.Subtitle="{Binding StorageName}"
+    Scaffold.Title="Encrypted Storage"
     mc:Ignorable="d">
 
-    <sd:Scaffolt.MenuItems>
-        <sd:ScaffoldMenu
+    <Scaffold.MenuItems>
+        <ScaffoldMenu
             Command="{Binding CommandSearchMode}"
             Text="Search"/>
-        <sd:ScaffoldMenu
+        <ScaffoldMenu
             Command="{Binding CommandEditStorage}"
             Text="Edit storage"/>
 
-        <sd:ScaffoldMenu
+        <ScaffoldMenu
             Command="{Binding CommandExportDbAsEncrypt}"
             Text="Export db file"/>
 
-        <sd:ScaffoldMenu>
-            <sd:ScaffoldMenu.CustomView>
+        <ScaffoldMenu>
+            <ScaffoldMenu.CustomView>
                 <DataTemplate>
                     <sd:DropdownButton
                         ItemsSource="{x:Type enums:SortingStorageItems}"
                         Placeholder="Select sorting"
                         SelectedItem="{Binding #root.((vm:StoragePresentVm)DataContext).SelectedSortingItem}"/>
                 </DataTemplate>
-            </sd:ScaffoldMenu.CustomView>
-        </sd:ScaffoldMenu>
-    </sd:Scaffolt.MenuItems>
+            </ScaffoldMenu.CustomView>
+        </ScaffoldMenu>
+    </Scaffold.MenuItems>
 
-    <sd:Scaffolt.CustomNavigationBar>
+    <Scaffold.CustomNavigationBar>
         <Grid
             Margin="5"
             ColumnDefinitions="Auto, *"
@@ -105,7 +105,7 @@
                 </sd:StackLayout>
             </sd:ZStackLayout>
         </Grid>
-    </sd:Scaffolt.CustomNavigationBar>
+    </Scaffold.CustomNavigationBar>
 
     <sd:ScrollViewerExt
         AllowAutoHide="False"

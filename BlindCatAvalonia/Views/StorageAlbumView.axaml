@@ -13,33 +13,33 @@
     x:Name="root"
     d:DesignHeight="450"
     d:DesignWidth="800"
-    sd:Scaffolt.Subtitle="{Binding StorageName, StringFormat='Storage: {0}'}"
-    sd:Scaffolt.Title="{Binding AlbumName}"
     ColumnDefinitions="*, Auto"
+    Scaffold.Subtitle="{Binding StorageName, StringFormat='Storage: {0}'}"
+    Scaffold.Title="{Binding AlbumName}"
     mc:Ignorable="d">
 
-    <sd:Scaffolt.MenuItems>
-        <sd:ScaffoldMenu>
-            <sd:ScaffoldMenu.CustomView>
+    <Scaffold.MenuItems>
+        <ScaffoldMenu>
+            <ScaffoldMenu.CustomView>
                 <DataTemplate>
                     <sd:DropdownButton
                         ItemsSource="{x:Type enums:SortingAlbumItems}"
                         Placeholder="Select sorting"
                         SelectedItem="{Binding #root.((vm:StorageAlbumVm)DataContext).SelectedSortingItem}"/>
                 </DataTemplate>
-            </sd:ScaffoldMenu.CustomView>
-        </sd:ScaffoldMenu>
+            </ScaffoldMenu.CustomView>
+        </ScaffoldMenu>
 
-        <sd:ScaffoldMenu
+        <ScaffoldMenu
             Command="{Binding CommandDeleteAlbum}"
             Text="Delete album"/>
 
-        <sd:ScaffoldMenu
+        <ScaffoldMenu
             Command="{Binding CommandShowEditPanel}"
             Text="Edit album"/>
-    </sd:Scaffolt.MenuItems>
+    </Scaffold.MenuItems>
 
-    <sd:Scaffolt.CustomNavigationBar>
+    <Scaffold.CustomNavigationBar>
         <Grid
             Margin="5"
             ColumnDefinitions="Auto, *"
@@ -99,7 +99,7 @@
                 </sd:StackLayout>
             </sd:ZStackLayout>
         </Grid>
-    </sd:Scaffolt.CustomNavigationBar>
+    </Scaffold.CustomNavigationBar>
 
     <sd:ScrollViewerExt
         AllowAutoHide="False"

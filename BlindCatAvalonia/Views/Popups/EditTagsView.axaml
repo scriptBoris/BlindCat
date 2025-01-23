@@ -1,17 +1,18 @@
-<Grid xmlns="https://github.com/avaloniaui"
-      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-      xmlns:models="using:BlindCatCore.Models"
-      xmlns:sd="using:BlindCatAvalonia.SDcontrols"
-      xmlns:vm="using:BlindCatCore.PopupViewModels"
-      x:Class="BlindCatAvalonia.EditTagsView"
-      x:DataType="vm:EditTagsVm"
-      x:Name="root"
-      d:DesignWidth="350"
-      Background="#202020"
-      Scaffolt.Title="Edit tags"
-      mc:Ignorable="d">
+<Grid
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:BlindCatCore.Models"
+    xmlns:sd="using:BlindCatAvalonia.SDcontrols"
+    xmlns:vm="using:BlindCatCore.PopupViewModels"
+    x:Class="BlindCatAvalonia.EditTagsView"
+    x:DataType="vm:EditTagsVm"
+    x:Name="root"
+    d:DesignWidth="350"
+    Background="#202020"
+    Scaffold.Title="Edit tags"
+    mc:Ignorable="d">
 
     <Grid.Styles>
         <Style Selector="TextBlock.label">
@@ -25,8 +26,9 @@
 
     <sd:StackLayout Spacing="10">
         <!--already tags-->
-        <StackPanel VerticalAlignment="Top"
-                    IsVisible="{Binding AlreadyTags.Count, Converter={StaticResource IsNotEmpty}}">
+        <StackPanel
+            VerticalAlignment="Top"
+            IsVisible="{Binding AlreadyTags.Count, Converter={StaticResource IsNotEmpty}}">
             <TextBlock Classes="label">Already tags</TextBlock>
             <ItemsControl ItemsSource="{Binding AlreadyTags}">
                 <ItemsControl.ItemsPanel>
@@ -37,14 +39,16 @@
 
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="models:TagCount">
-                        <Button Margin="0,0,5,5"
-                                Command="{Binding #root.((vm:EditTagsVm)DataContext).CommandRemoveTag}"
-                                CommandParameter="{Binding .}"
-                                Theme="{StaticResource ButtonAccent}">
+                        <Button
+                            Margin="0,0,5,5"
+                            Command="{Binding #root.((vm:EditTagsVm)DataContext).CommandRemoveTag}"
+                            CommandParameter="{Binding .}"
+                            Theme="{StaticResource ButtonAccent}">
                             <TextBlock VerticalAlignment="Center">
                                 <Run Text="{Binding TagName}"/>
-                                <Run Foreground="#777"
-                                     Text="{Binding Count, StringFormat='[{0}]'}"/>
+                                <Run
+                                    Foreground="#777"
+                                    Text="{Binding Count, StringFormat='[{0}]'}"/>
                             </TextBlock>
                         </Button>
                     </DataTemplate>
@@ -53,8 +57,9 @@
         </StackPanel>
 
         <!--Tags will added-->
-        <StackPanel VerticalAlignment="Top"
-                    IsVisible="{Binding TagsController.SelectedTags.Count, Converter={StaticResource IsNotEmpty}}">
+        <StackPanel
+            VerticalAlignment="Top"
+            IsVisible="{Binding TagsController.SelectedTags.Count, Converter={StaticResource IsNotEmpty}}">
             <TextBlock Classes="label">Tags will added</TextBlock>
             <ItemsControl ItemsSource="{Binding TagsController.SelectedTags}">
                 <ItemsControl.ItemsPanel>
@@ -65,11 +70,12 @@
 
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Button Margin="0,0,5,5"
-                                Command="{Binding #root.((vm:EditTagsVm)DataContext).CommandRemoveTag}"
-                                CommandParameter="{Binding .}"
-                                Content="{Binding .}"
-                                Theme="{StaticResource ButtonAccent}">
+                        <Button
+                            Margin="0,0,5,5"
+                            Command="{Binding #root.((vm:EditTagsVm)DataContext).CommandRemoveTag}"
+                            CommandParameter="{Binding .}"
+                            Content="{Binding .}"
+                            Theme="{StaticResource ButtonAccent}">
                         </Button>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -80,17 +86,19 @@
         <StackPanel VerticalAlignment="Top">
             <TextBlock Classes="label">May you add new tag</TextBlock>
 
-            <sd:AutoSuggestion x:Name="autoSuggestion"
-                               CommandCompleted="{Binding TagsController.CommandPressEnter}"
-                               ItemsSource="{Binding TagsController.FilteredTags}"
-                               Text="{Binding TagsController.EntryText}"
-                               TextChangedCommand="{Binding TagsController.CommandTextChanged}"
-                               Watermark="Typing new tag"/>
+            <sd:AutoSuggestion
+                x:Name="autoSuggestion"
+                CommandCompleted="{Binding TagsController.CommandPressEnter}"
+                ItemsSource="{Binding TagsController.FilteredTags}"
+                Text="{Binding TagsController.EntryText}"
+                TextChangedCommand="{Binding TagsController.CommandTextChanged}"
+                Watermark="Typing new tag"/>
         </StackPanel>
 
         <!--removed tags-->
-        <StackPanel VerticalAlignment="Top"
-                    IsVisible="{Binding WillRemovedTags.Count, Converter={StaticResource IsNotEmpty}}">
+        <StackPanel
+            VerticalAlignment="Top"
+            IsVisible="{Binding WillRemovedTags.Count, Converter={StaticResource IsNotEmpty}}">
             <TextBlock Classes="label">Tags will removed</TextBlock>
             <ItemsControl ItemsSource="{Binding WillRemovedTags}">
                 <ItemsControl.ItemsPanel>
@@ -101,16 +109,19 @@
 
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="models:TagCount">
-                        <Button Margin="0,0,5,5"
-                                Background="DarkRed"
-                                Command="{Binding #root.((vm:EditTagsVm)DataContext).CommandRemoveTag}"
-                                CommandParameter="{Binding .}"
-                                Theme="{StaticResource ButtonAccent}">
+                        <Button
+                            Margin="0,0,5,5"
+                            Background="DarkRed"
+                            Command="{Binding #root.((vm:EditTagsVm)DataContext).CommandRemoveTag}"
+                            CommandParameter="{Binding .}"
+                            Theme="{StaticResource ButtonAccent}">
                             <TextBlock>
-                                <Run Foreground="#CCC"
-                                     Text="{Binding TagName}"/>
-                                <Run Foreground="#777"
-                                     Text="{Binding Count, StringFormat='[{0}]'}"/>
+                                <Run
+                                    Foreground="#CCC"
+                                    Text="{Binding TagName}"/>
+                                <Run
+                                    Foreground="#777"
+                                    Text="{Binding Count, StringFormat='[{0}]'}"/>
                             </TextBlock>
                         </Button>
                     </DataTemplate>
@@ -119,12 +130,13 @@
         </StackPanel>
 
         <!--Save-->
-        <Button Margin="0,20,0,0"
-                HorizontalAlignment="Stretch"
-                VerticalAlignment="Bottom"
-                HorizontalContentAlignment="Center"
-                Command="{Binding CommandSave}"
-                Theme="{StaticResource ButtonAccent}">
+        <Button
+            Margin="0,20,0,0"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Bottom"
+            HorizontalContentAlignment="Center"
+            Command="{Binding CommandSave}"
+            Theme="{StaticResource ButtonAccent}">
             Commit
         </Button>
     </sd:StackLayout>

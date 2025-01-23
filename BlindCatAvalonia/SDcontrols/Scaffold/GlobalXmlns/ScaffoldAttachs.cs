@@ -12,19 +12,19 @@ using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-[assembly: XmlnsDefinition("https://github.com/avaloniaui", "BlindCatAvalonia.SDcontrols")]
-namespace BlindCatAvalonia.SDcontrols;
+[assembly: XmlnsDefinition("https://github.com/avaloniaui", "BlindCatAvalonia.SDcontrols.Scaffold.GlobalXmlns")]
+namespace BlindCatAvalonia.SDcontrols.Scaffold.GlobalXmlns;
 
-public class Scaffolt : AvaloniaObject
+public class Scaffold : AvaloniaObject
 {
-    static Scaffolt()
+    static Scaffold()
     {
         TitleProperty.Changed.AddClassHandler<Interactive>(ChangedTitle);
         HasNavigationBarProperty.Changed.AddClassHandler<Interactive>(ChangedHasNavigationBar);
     }
 
     // title
-    public static readonly AttachedProperty<string?> TitleProperty = AvaloniaProperty.RegisterAttached<Scaffolt, Interactive, string?>(
+    public static readonly AttachedProperty<string?> TitleProperty = AvaloniaProperty.RegisterAttached<Scaffold, Interactive, string?>(
         "Title"
     );
     public static void SetTitle(AvaloniaObject element, string title) => element.SetValue(TitleProperty, title);
@@ -35,7 +35,7 @@ public class Scaffolt : AvaloniaObject
     }
 
     // subtitle
-    public static readonly AttachedProperty<string?> SubtitleProperty = AvaloniaProperty.RegisterAttached<Scaffolt, Interactive, string?>(
+    public static readonly AttachedProperty<string?> SubtitleProperty = AvaloniaProperty.RegisterAttached<Scaffold, Interactive, string?>(
         "Subtitle"
     );
     public static void SetSubtitle(AvaloniaObject element, string title) => element.SetValue(SubtitleProperty, title);
@@ -45,7 +45,7 @@ public class Scaffolt : AvaloniaObject
     }
 
     // has navigation bar
-    public static readonly AttachedProperty<bool> HasNavigationBarProperty = AvaloniaProperty.RegisterAttached<Scaffolt, Interactive, bool>(
+    public static readonly AttachedProperty<bool> HasNavigationBarProperty = AvaloniaProperty.RegisterAttached<Scaffold, Interactive, bool>(
         "HasNavigationBar",
         true
     );
@@ -56,7 +56,7 @@ public class Scaffolt : AvaloniaObject
     }
 
     // background navigation bar
-    public static readonly AttachedProperty<IBrush> BackgroundNavigationBarProperty = AvaloniaProperty.RegisterAttached<Scaffolt, Interactive, IBrush>(
+    public static readonly AttachedProperty<IBrush> BackgroundNavigationBarProperty = AvaloniaProperty.RegisterAttached<Scaffold, Interactive, IBrush>(
         "BackgroundNavigationBar",
         new SolidColorBrush(new Color(255, 32,32,32))
     );
@@ -67,7 +67,7 @@ public class Scaffolt : AvaloniaObject
     }
 
     // content under navigation bar
-    public static readonly AttachedProperty<bool> ContentUnderNavigationBarProperty = AvaloniaProperty.RegisterAttached<Scaffolt, Interactive, bool>(
+    public static readonly AttachedProperty<bool> ContentUnderNavigationBarProperty = AvaloniaProperty.RegisterAttached<Scaffold, Interactive, bool>(
         "ContentUnderNavigationBar",
         false
     );
@@ -79,7 +79,7 @@ public class Scaffolt : AvaloniaObject
     }
 
     // menu items
-    public static readonly AttachedProperty<AvaloniaList<ScaffoldMenu>> MenuItemsProperty = AvaloniaProperty.RegisterAttached<Scaffolt, Interactive, AvaloniaList<ScaffoldMenu>>(
+    public static readonly AttachedProperty<AvaloniaList<ScaffoldMenu>> MenuItemsProperty = AvaloniaProperty.RegisterAttached<Scaffold, Interactive, AvaloniaList<ScaffoldMenu>>(
         "MenuItems",
         null!
     );
@@ -97,7 +97,7 @@ public class Scaffolt : AvaloniaObject
     public static void SetMenuItems(Interactive element, AvaloniaList<ScaffoldMenu> value) => element.SetValue(MenuItemsProperty, value);
 
     // custom nav bar
-    public static readonly AttachedProperty<Control?> CustomNavigationBarProperty = AvaloniaProperty.RegisterAttached<Scaffolt, Interactive, Control?>(
+    public static readonly AttachedProperty<Control?> CustomNavigationBarProperty = AvaloniaProperty.RegisterAttached<Scaffold, Interactive, Control?>(
         "CustomNavigationBar",
         null
     );

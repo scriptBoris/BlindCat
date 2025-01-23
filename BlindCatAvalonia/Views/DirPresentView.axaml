@@ -1,68 +1,78 @@
-<Grid xmlns="https://github.com/avaloniaui"
-      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-      xmlns:models="using:BlindCatCore.Models"
-      xmlns:sd="using:BlindCatAvalonia.SDcontrols"
-      xmlns:vm="using:BlindCatCore.ViewModels"
-      x:Class="BlindCatAvalonia.DirPresentView"
-      x:DataType="vm:DirPresentVm"
-      Name="root"
-      d:DesignHeight="900"
-      d:DesignWidth="1150"
-      sd:Scaffolt.Subtitle="{Binding Dir.DirPath}"
-      sd:Scaffolt.Title="Local directory"
-      x:CompileBindings="True"
-      mc:Ignorable="d">
+<Grid
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:BlindCatCore.Models"
+    xmlns:sd="using:BlindCatAvalonia.SDcontrols"
+    xmlns:vm="using:BlindCatCore.ViewModels"
+    x:Class="BlindCatAvalonia.DirPresentView"
+    x:DataType="vm:DirPresentVm"
+    Name="root"
+    d:DesignHeight="900"
+    d:DesignWidth="1150"
+    x:CompileBindings="True"
+    Scaffold.Subtitle="{Binding Dir.DirPath}"
+    Scaffold.Title="Local directory"
+    mc:Ignorable="d">
 
-    <sd:Scaffolt.CustomNavigationBar>
-        <sd:StackLayout Padding="5"
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Stretch"
-                        IsVisible="{Binding ShowSelectionPanel}"
-                        Orientation="Horizontal"
-                        Spacing="5">
+    <Scaffold.CustomNavigationBar>
+        <sd:StackLayout
+            Padding="5"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            IsVisible="{Binding ShowSelectionPanel}"
+            Orientation="Horizontal"
+            Spacing="5">
 
             <!--cancel selections-->
-            <Button Padding="5"
-                    VerticalAlignment="Center"
-                    Background="Transparent"
-                    Command="{Binding CommandClearSelection}"
-                    CornerRadius="5">
-                <Canvas Width="24"
-                        Height="24">
-                    <Path Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"
-                          Fill="#FFF"/>
+            <Button
+                Padding="5"
+                VerticalAlignment="Center"
+                Background="Transparent"
+                Command="{Binding CommandClearSelection}"
+                CornerRadius="5">
+                <Canvas
+                    Width="24"
+                    Height="24">
+                    <Path
+                        Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"
+                        Fill="#FFF"/>
                 </Canvas>
             </Button>
 
-            <TextBlock Margin="5,0,0,0"
-                       HorizontalAlignment="Stretch"
-                       VerticalAlignment="Center"
-                       FontSize="15">
+            <TextBlock
+                Margin="5,0,0,0"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Center"
+                FontSize="15">
                 <Run Text="Selected files"/>
                 <Run Text="{Binding SelectedFilesCount}"/>
             </TextBlock>
 
-            <Button Command="{Binding CommandSelectAll}"
-                    Theme="{StaticResource Button}">
+            <Button
+                Command="{Binding CommandSelectAll}"
+                Theme="{StaticResource Button}">
                 Select all
             </Button>
-            <Button Command="{Binding CommandAddTags}"
-                    Theme="{StaticResource Button}">
+            <Button
+                Command="{Binding CommandAddTags}"
+                Theme="{StaticResource Button}">
                 Edit tags
             </Button>
-            <Button Command="{Binding CommandSaveSelectedItems}"
-                    Theme="{StaticResource Button}">
+            <Button
+                Command="{Binding CommandSaveSelectedItems}"
+                Theme="{StaticResource Button}">
                 Save
             </Button>
 
-            <Button Command="{Binding CommandDeleteSelectedItems}"
-                    Theme="{StaticResource Button}">
+            <Button
+                Command="{Binding CommandDeleteSelectedItems}"
+                Theme="{StaticResource Button}">
                 Delete
             </Button>
         </sd:StackLayout>
-    </sd:Scaffolt.CustomNavigationBar>
+    </Scaffold.CustomNavigationBar>
 
     <!--<ScrollViewer Background="#000"
                   HorizontalScrollBarVisibility="Disabled">
@@ -103,41 +113,49 @@
         </ItemsRepeater>
     </ScrollViewer>-->
 
-    <sd:VirtualGridView ItemHeight="250"
-                        ItemWidth="250"
-                        ItemsSource="{Binding Dir.Files}">
+    <sd:VirtualGridView
+        ItemHeight="250"
+        ItemWidth="250"
+        ItemsSource="{Binding Dir.Files}">
         <sd:VirtualGridView.ItemTemplate>
             <DataTemplate x:DataType="models:LocalFile">
-                <sd:PreviewButton Command="{Binding #root.((vm:DirPresentVm)DataContext).CommandOpen}"
-                                  CommandParameter="{Binding .}"
-                                  FileName="{Binding FileName}"
-                                  IsSelected="{Binding IsSelected}"
-                                  RecycleChildren="{Binding #img}"
-                                  SelectedChangedCommand="{Binding #root.((vm:DirPresentVm)DataContext).CommandSelectedChanged}"
-                                  Tags="{Binding TempStorageFile.Tags}">
+                <sd:PreviewButton
+                    Command="{Binding #root.((vm:DirPresentVm)DataContext).CommandOpen}"
+                    CommandParameter="{Binding .}"
+                    FileName="{Binding FileName}"
+                    IsSelected="{Binding IsSelected}"
+                    RecycleChildren="{Binding #img}"
+                    SelectedChangedCommand="{Binding #root.((vm:DirPresentVm)DataContext).CommandSelectedChanged}"
+                    Tags="{Binding TempStorageFile.Tags}">
                     <Grid>
-                        <sd:ImagePreview x:Name="img"
-                                         Source="{Binding FilePath}"
-                                         Stretch="UniformToFill"
-                                         ZIndex="0"/>
+                        <sd:ImagePreview
+                            x:Name="img"
+                            Source="{Binding FilePath}"
+                            Stretch="UniformToFill"
+                            ZIndex="0"/>
 
-                        <Viewbox Width="120"
-                                 Height="120"
-                                 IsVisible="{Binding IsVideo}"
-                                 ZIndex="1">
-                            <Canvas Width="24"
-                                    Height="24">
-                                <Path Data="M10,16.5V7.5L16,12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"
-                                      Fill="#8FFF"/>
+                        <Viewbox
+                            Width="120"
+                            Height="120"
+                            IsVisible="{Binding IsVideo}"
+                            ZIndex="1">
+                            <Canvas
+                                Width="24"
+                                Height="24">
+                                <Path
+                                    Data="M10,16.5V7.5L16,12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"
+                                    Fill="#8FFF"/>
                             </Canvas>
                         </Viewbox>
 
-                        <Grid Background="#202020"
-                              IsVisible="{Binding #img.IsLoading}"
-                              ZIndex="2">
-                            <TextBlock HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       Foreground="Gray">
+                        <Grid
+                            Background="#202020"
+                            IsVisible="{Binding #img.IsLoading}"
+                            ZIndex="2">
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Foreground="Gray">
                                 LOADING
                             </TextBlock>
                         </Grid>

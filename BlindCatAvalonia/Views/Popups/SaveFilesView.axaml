@@ -1,17 +1,18 @@
-<Grid xmlns="https://github.com/avaloniaui"
-      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-      xmlns:models="using:BlindCatCore.Models"
-      xmlns:sd="using:BlindCatAvalonia.SDcontrols"
-      xmlns:vm="using:BlindCatCore.PopupViewModels"
-      x:Class="BlindCatAvalonia.Views.Popups.SaveFilesView"
-      x:DataType="vm:SaveFilesVm"
-      x:Name="root"
-      d:DesignWidth="300"
-      sd:Scaffolt.Title="{Binding StorageName, StringFormat='To Storage: {0}'}"
-      Background="#202020"
-      mc:Ignorable="d">
+<Grid
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:BlindCatCore.Models"
+    xmlns:sd="using:BlindCatAvalonia.SDcontrols"
+    xmlns:vm="using:BlindCatCore.PopupViewModels"
+    x:Class="BlindCatAvalonia.Views.Popups.SaveFilesView"
+    x:DataType="vm:SaveFilesVm"
+    x:Name="root"
+    d:DesignWidth="300"
+    Background="#202020"
+    Scaffold.Title="{Binding StorageName, StringFormat='To Storage: {0}'}"
+    mc:Ignorable="d">
 
 
     <Grid.Styles>
@@ -27,15 +28,17 @@
     <sd:StackLayout Spacing="10">
 
         <!--file name-->
-        <StackPanel VerticalAlignment="Top"
-                    IsVisible="{Binding IsSingleFile}">
+        <StackPanel
+            VerticalAlignment="Top"
+            IsVisible="{Binding IsSingleFile}">
             <TextBlock Classes="label">
                 File name
             </TextBlock>
-            <TextBox HorizontalAlignment="Stretch"
-                     VerticalAlignment="Top"
-                     Text="{Binding NameForSingleFile}"
-                     Watermark="None"/>
+            <TextBox
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Top"
+                Text="{Binding NameForSingleFile}"
+                Watermark="None"/>
         </StackPanel>
 
         <!--artist-->
@@ -44,10 +47,11 @@
             <TextBlock Classes="label">
                 Artist
             </TextBlock>
-            <TextBox HorizontalAlignment="Stretch"
-                     VerticalAlignment="Top"
-                     Text="{Binding Artist}"
-                     Watermark="None"/>
+            <TextBox
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Top"
+                Text="{Binding Artist}"
+                Watermark="None"/>
         </StackPanel>
 
         <!--description-->
@@ -55,16 +59,18 @@
             <TextBlock Classes="label">
                 Description
             </TextBlock>
-            <TextBox HorizontalAlignment="Stretch"
-                     VerticalAlignment="Top"
-                     Text="{Binding Description}"
-                     TextWrapping="WrapWithOverflow"
-                     Watermark="None"/>
+            <TextBox
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Top"
+                Text="{Binding Description}"
+                TextWrapping="WrapWithOverflow"
+                Watermark="None"/>
         </StackPanel>
 
         <!--already tags-->
-        <StackPanel VerticalAlignment="Top"
-                    IsVisible="{Binding AlreadyTags.Length, Converter={StaticResource IsNotEmpty}}">
+        <StackPanel
+            VerticalAlignment="Top"
+            IsVisible="{Binding AlreadyTags.Length, Converter={StaticResource IsNotEmpty}}">
 
             <TextBlock Classes="label">Already tags</TextBlock>
             <ItemsControl ItemsSource="{Binding AlreadyTags}">
@@ -76,8 +82,9 @@
 
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="models:TagCount">
-                        <Button Command="{Binding #root.((vm:SaveFilesVm)DataContext).TagsController.CommandTagDelete}"
-                                CommandParameter="{Binding .}">
+                        <Button
+                            Command="{Binding #root.((vm:SaveFilesVm)DataContext).TagsController.CommandTagDelete}"
+                            CommandParameter="{Binding .}">
                             <TextBlock VerticalAlignment="Center">
                                 <Run Text="{Binding TagName}"/>
                                 <Run Text=" "/>
@@ -90,8 +97,9 @@
         </StackPanel>
 
         <!--will added tags-->
-        <StackPanel VerticalAlignment="Top"
-                    IsVisible="{Binding TagsController.SelectedTags.Count, Converter={StaticResource IsNotEmpty}}">
+        <StackPanel
+            VerticalAlignment="Top"
+            IsVisible="{Binding TagsController.SelectedTags.Count, Converter={StaticResource IsNotEmpty}}">
 
             <TextBlock Classes="label">Will added tags</TextBlock>
             <ItemsControl ItemsSource="{Binding TagsController.SelectedTags}">
@@ -103,11 +111,12 @@
 
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Button Margin="0,0,5,5"
-                                Command="{Binding #root.((vm:SaveFilesVm)DataContext).TagsController.CommandTagDelete}"
-                                CommandParameter="{Binding .}"
-                                Content="{Binding .}"
-                                Theme="{StaticResource ButtonAccent}"/>
+                        <Button
+                            Margin="0,0,5,5"
+                            Command="{Binding #root.((vm:SaveFilesVm)DataContext).TagsController.CommandTagDelete}"
+                            CommandParameter="{Binding .}"
+                            Content="{Binding .}"
+                            Theme="{StaticResource ButtonAccent}"/>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
@@ -116,19 +125,21 @@
         <!--May you add new tag-->
         <StackPanel>
             <TextBlock Classes="label">May you add new tag</TextBlock>
-            <sd:AutoSuggestion CommandCompleted="{Binding TagsController.CommandPressEnter}"
-                               ItemsSource="{Binding TagsController.FilteredTags}"
-                               Text="{Binding TagsController.EntryText}"
-                               TextChangedCommand="{Binding TagsController.CommandTextChanged}"
-                               Watermark="Typing new tag"/>
+            <sd:AutoSuggestion
+                CommandCompleted="{Binding TagsController.CommandPressEnter}"
+                ItemsSource="{Binding TagsController.FilteredTags}"
+                Text="{Binding TagsController.EntryText}"
+                TextChangedCommand="{Binding TagsController.CommandTextChanged}"
+                Watermark="Typing new tag"/>
         </StackPanel>
 
         <!--commit-->
-        <Button Margin="0,20,0,0"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                Command="{Binding CommandSave}"
-                Theme="{StaticResource ButtonAccent}">
+        <Button
+            Margin="0,20,0,0"
+            HorizontalAlignment="Stretch"
+            HorizontalContentAlignment="Center"
+            Command="{Binding CommandSave}"
+            Theme="{StaticResource ButtonAccent}">
             Save to storage
         </Button>
     </sd:StackLayout>

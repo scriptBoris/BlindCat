@@ -11,12 +11,12 @@
     x:Name="root"
     d:DesignHeight="450"
     d:DesignWidth="600"
-    sd:Scaffolt.BackgroundNavigationBar="Transparent"
-    sd:Scaffolt.ContentUnderNavigationBar="True"
-    sd:Scaffolt.Subtitle="{Binding CurrentFile.FileName}"
-    sd:Scaffolt.Title="{Binding DirName}"
     Background="#000"
     ColumnDefinitions="*, Auto"
+    Scaffold.BackgroundNavigationBar="Transparent"
+    Scaffold.ContentUnderNavigationBar="True"
+    Scaffold.Subtitle="{Binding CurrentFile.FileName}"
+    Scaffold.Title="{Binding DirName}"
     mc:Ignorable="d">
 
     <!--players: pics-->

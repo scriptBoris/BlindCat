@@ -9,6 +9,8 @@ using BlindCatCore.Core;
 using System;
 using System.Reflection.Metadata;
 using System.Windows.Input;
+using BlindCatAvalonia.SDcontrols.Scaffold.GlobalXmlns;
+using Scaffolt = global::BlindCatAvalonia.SDcontrols.Scaffold.GlobalXmlns.Scaffold;
 
 namespace BlindCatAvalonia.SDcontrols.Scaffold.Utils;
 
