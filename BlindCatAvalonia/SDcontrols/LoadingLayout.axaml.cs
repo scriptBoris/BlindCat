@@ -44,7 +44,8 @@ public partial class LoadingLayout : UserControl
     #region bindable props
     // Subscribe for
     public static readonly StyledProperty<string> SubscribeForProperty = AvaloniaProperty.Register<LoadingLayout, string>(
-        nameof(SubscribeFor)
+        nameof(SubscribeFor),
+        "default"
     );
     public string SubscribeFor
     {
@@ -145,7 +146,7 @@ public partial class LoadingLayout : UserControl
         {
             newSrc.PropertyChanged += LoadingStrDescPropChanged;
         }
-        else if (DataContext is BaseVm vm && SubscribeFor != null)
+        else if (DataContext is BaseVm vm)
         {
             var matchToken = vm.LoadingCheck(SubscribeFor);
             if (matchToken != null)

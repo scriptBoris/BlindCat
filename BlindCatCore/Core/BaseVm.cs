@@ -14,9 +14,7 @@ public interface IKey<T> where T : BaseVm
 public abstract class BaseVm : BaseNotify
 {
     private readonly ObservableCollection<BaseVm> _childrens = new();
-    private readonly List<LoadingToken> _tokens = [];
-    private readonly List<string> _manualLoadingHandlers = [];
-    private int _loadingCounter = 0;
+    private readonly List<LoadingToken> _loadings = [];
     private object? _view;
 
     public event LoadingChangedHandler? LoadingPushed;
@@ -202,13 +200,12 @@ public abstract class BaseVm : BaseNotify
         return _view;
     }
 
-    public IDisposableNotify LoadingGlobal(string token = "default", string? description = null, CancellationTokenSource? cancel = null)
+    public IDisposableNotify LoadingGlobal(string token = "global_default", string? description = null, CancellationTokenSource? cancel = null)
     {
         if (_view == null)
             throw new InvalidOperationException("View has not been initialized yet");
 
-        _loadingCounter++;
-        IsLoading = _loadingCounter > 0;
+        IsLoading = true;
 
         var loading = new LoadingToken
         {
@@ -217,13 +214,14 @@ public abstract class BaseVm : BaseNotify
             Cancellation = cancel,
         };
         loading.Disposed += Loading_Disposed;
+        _loadings.Add(loading);
         ViewPlatforms.UseGlobalLoading(_view, loading);
 
         void Loading_Disposed(object? sender, EventArgs e)
         {
             loading.Disposed -= Loading_Disposed;
-            _loadingCounter--;
-            IsLoading = _loadingCounter > 0;
+            _loadings.Remove(loading);
+            IsLoading = _loadings.Count > 0;
         }
 
         return loading;
@@ -242,22 +240,16 @@ public abstract class BaseVm : BaseNotify
             Title = description,
             Cancellation = cancel,
         };
-
-        if (_tokens.Contains(loading))
-            throw new InvalidOperationException();
-
-        _tokens.Add(loading);
-
-        _loadingCounter++;
-        IsLoading = _loadingCounter > 0;
         loading.Disposed += Loading_Disposed;
+
+        _loadings.Add(loading);
+        IsLoading = true;
 
         void Loading_Disposed(object? sender, EventArgs e)
         {
             loading.Disposed -= Loading_Disposed;
-            _loadingCounter--;
-            IsLoading = _loadingCounter > 0;
-            _tokens.Remove(loading);
+            _loadings.Remove(loading);
+            IsLoading = _loadings.Count > 0;
             LoadingPoped?.Invoke(this, loading);
         }
 
@@ -268,7 +260,7 @@ public abstract class BaseVm : BaseNotify
 
     public LoadingToken? LoadingCheck(string token)
     {
-        var match = _tokens.LastOrDefault(x => x.Token == token);
+        var match = _loadings.LastOrDefault(x => x.Token == token);
         if (match == null)
             return null;
 

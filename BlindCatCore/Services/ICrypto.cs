@@ -30,7 +30,7 @@ public interface ICrypto
 
     string ToCENCPassword(string passwordText);
     string GetKid();
-    long CalculateOgirinFileSize(Guid storageId, string filePath, string password);
+    long? CalculateOgirinFileSize(Guid storageId, string filePath, string password);
 }
 
 public class Crypto : ICrypto
@@ -515,7 +515,7 @@ public class Crypto : ICrypto
         return currentPosition; // Возвращаем новую позицию (должна совпадать с targetPosition)
     }
 
-    public long CalculateOgirinFileSize(Guid storageId, string encryptedFilePath, string password)
+    public long? CalculateOgirinFileSize(Guid storageId, string encryptedFilePath, string password)
     {
         const int ivSize = 16;
 
@@ -548,9 +548,18 @@ public class Crypto : ICrypto
         byte[] buffer = new byte[4096];
         int bytesRead;
 
-        while ((bytesRead = cryptoStream.Read(buffer, 0, buffer.Length)) > 0)
+        try
         {
-            totalBytesRead += bytesRead;
+            while ((bytesRead = cryptoStream.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                totalBytesRead += bytesRead;
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            Debugger.Break();
+            return null;
         }
 
         return totalBytesRead;

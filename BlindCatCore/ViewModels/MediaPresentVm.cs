@@ -271,7 +271,7 @@ public class MediaPresentVm : BaseVm, IFileUnlocker
         var cancel = RefreshCancelation();
 
         OnFileLoading?.Invoke(this, file);
-        await TryUpdateFileSize(file);
+        await TryUpdateFileSize(file, cancel);
         var format = ResolveFormatByExt(file.FileExtension);
         await View.SetSource(file, format, cancel);
 
@@ -285,7 +285,7 @@ public class MediaPresentVm : BaseVm, IFileUnlocker
         View.Stop();
     }
 
-    private async Task TryUpdateFileSize(ISourceFile file)
+    private async Task TryUpdateFileSize(ISourceFile file, CancellationToken cancel)
     {
         if (file is not StorageFile sf)
             return;
@@ -298,7 +298,15 @@ public class MediaPresentVm : BaseVm, IFileUnlocker
             if (password == null)
                 return;
             
-            sf.OriginFileSize = _crypto.CalculateOgirinFileSize(storage.Guid, sf.FilePath, password);
+            long? size = await Task.Run(() =>
+            {
+                return _crypto.CalculateOgirinFileSize(storage.Guid, sf.FilePath, password);
+            });
+            
+            if (size == null || cancel.IsCancellationRequested)
+                return;
+            
+            sf.OriginFileSize = size;
             await _databaseService.UpdateContent(storage.PathIndex, password, sf);
         }
     }

@@ -86,7 +86,7 @@
                     <DataTemplate DataType="ScaffoldMenu">
                         <Button
                             Margin="0,0,5,0"
-                            Command="{Binding #root.CommandMenuItem}"
+                            Command="{Binding Command}"
                             CommandParameter="{Binding .}"
                             IsVisible="{Binding CustomView, Converter={StaticResource IsNull}}"
                             Theme="{StaticResource Button}">
