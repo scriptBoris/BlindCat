@@ -57,4 +57,9 @@ public class ContentStorageDb
     /// Внутри какого альбома находится данный элемент?
     /// </summary>
     public Guid? Parent { get; set; }
+    
+    /// <summary>
+    /// Размер оригинального незашифрованного файла 
+    /// </summary>
+    public long? OriginFileSize { get; set; }
 }

@@ -1,7 +1,7 @@
 using Avalonia;
-using Avalonia.Threading;
-using Avalonia.OpenGL.Controls;
 using Avalonia.OpenGL;
+using Avalonia.OpenGL.Controls;
+using Avalonia.Threading;
 
 namespace BlindCatAvalonia.MediaPlayers.Surfaces;
 
@@ -43,13 +43,13 @@ public class OpenGLSurface : OpenGlControlBase, IVideoSurface
         if (frameData == null)
             return;
 
-        // Пример загрузки текстуры в OpenGL
+        // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ OpenGL
         //int texture = gl.GenTexture();
         //gl.BindTexture(GL_TEXTURE_2D, texture);
         //gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, frameData.Width, frameData.Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, frameData.Pointer);
         //gl.BindTexture(GL_TEXTURE_2D, 0);
 
-        //// Используйте текстуру
+        //// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         //gl.BindFramebuffer(GL_FRAMEBUFFER, fbo);
         //gl.DrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -60,21 +60,21 @@ public class OpenGLSurface : OpenGlControlBase, IVideoSurface
         int texture = gl.GenTexture();
         gl.BindTexture(GL_TEXTURE_2D, texture);
 
-        // Настройки текстуры
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        // Загрузка текстуры
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, frameData.Width, frameData.Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, frameData.Pointer);
 
-        // Рендеринг
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         gl.BindFramebuffer(GL_FRAMEBUFFER, fbo);
         gl.BindTexture(GL_TEXTURE_2D, texture);
         gl.DrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-        // Очистка
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         gl.BindTexture(GL_TEXTURE_2D, 0);
         gl.DeleteTexture(texture);
 

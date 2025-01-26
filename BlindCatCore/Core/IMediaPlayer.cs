@@ -12,5 +12,5 @@ public interface IMediaPlayer : IMediaBase
     MediaPlayerStates State { get; }
     void Play();
     void Pause();
-    Task SeekTo(double progress, CancellationToken cancellation);
+    Task SeekTo(double seekProgress, CancellationToken cancellation);
 }

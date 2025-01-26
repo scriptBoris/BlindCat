@@ -1,12 +1,12 @@
+using System;
+using System.Collections;
+using System.Linq;
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using BlindCatCore.Core;
-using System;
-using System.Collections;
-using System.Linq;
-using System.Windows.Input;
 
 namespace BlindCatAvalonia.SDcontrols;
 

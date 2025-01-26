@@ -1,4 +1,11 @@
-﻿using Avalonia;
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Reflection.Metadata;
+using System.Text;
+using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -7,13 +14,6 @@ using BlindCatAvalonia.SDcontrols.Scaffold.Args;
 using BlindCatCore.Core;
 using BlindCatCore.Models;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Reflection.Metadata;
-using System.Text;
-using System.Threading.Tasks;
 using Scaffolt = global::BlindCatAvalonia.SDcontrols.Scaffold.GlobalXmlns.Scaffold;
 
 namespace BlindCatAvalonia.SDcontrols.Scaffold.Utils;

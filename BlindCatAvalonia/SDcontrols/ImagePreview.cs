@@ -1,7 +1,15 @@
-﻿using Avalonia;
+﻿using System;
+using System.Diagnostics;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls.Skia;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using BlindCatAvalonia.Core;
+using BlindCatAvalonia.MediaPlayers;
 using BlindCatCore.Core;
 using BlindCatCore.Enums;
 using BlindCatCore.Extensions;
@@ -9,14 +17,6 @@ using BlindCatCore.Models;
 using BlindCatCore.Services;
 using BlindCatCore.ViewModels;
 using SkiaSharp;
-using System;
-using System.Diagnostics;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
-using Avalonia.Media.Immutable;
-using BlindCatAvalonia.MediaPlayers;
-using Avalonia.Controls.Skia;
 
 namespace BlindCatAvalonia.SDcontrols;
 
@@ -175,6 +175,8 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
         if (!Directory.Exists(dirThumbnails))
             Directory.CreateDirectory(dirThumbnails);
 
+        var id = secFile.Storage.Guid;
+        long? size = secFile.OriginFileSize;
         string pathThumbnail = Path.Combine(dirThumbnails, secFile.Guid.ToString());
         MediaFormats format = secFile.CachedMediaFormat;
 
@@ -187,7 +189,7 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
             var sw = Stopwatch.StartNew();
             resultBitmap = await Task.Run(() =>
             {
-                using var crypto = _crypto.DecryptFileFast(pathThumbnail, secFile.Storage.Password);
+                using var crypto = _crypto.DecryptFileFast(id, pathThumbnail, secFile.Storage.Password, size);
                 if (crypto == null)
                 {
                     error = AppResponse.Error("Fail decrypt");
@@ -318,6 +320,8 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
 
         SKBitmap? resultBitmap = null;
         AppResponse? error = null;
+        
+        var id = album.Guid;
 
         // use cache
         if (File.Exists(pathThumbnail))
@@ -325,7 +329,7 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
             var sw = Stopwatch.StartNew();
             resultBitmap = await TaskExt.Run(() =>
             {
-                using var crypto = _crypto.DecryptFileFast(pathThumbnail, password);
+                using var crypto = _crypto.DecryptFileFast(id, pathThumbnail, password, null);
                 if (crypto == null)
                 {
                     error = AppResponse.Error("Fail decrypt");

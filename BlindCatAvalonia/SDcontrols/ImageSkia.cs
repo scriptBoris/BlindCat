@@ -1,4 +1,13 @@
-﻿using Avalonia.Controls.Skia;
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Avalonia.Controls.Skia;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
@@ -12,17 +21,8 @@ using MetadataExtractor;
 using MetadataExtractor.Formats.Exif;
 using MetadataExtractor.Formats.Jfif;
 using SkiaSharp;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Drawing;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
-namespace BlindCatAvalonia.MediaPlayers;
+namespace BlindCatAvalonia.SDcontrols;
 
 public class ImageSkia : SKBitmapControlExt, IMediaBase
 {
@@ -108,7 +108,9 @@ public class ImageSkia : SKBitmapControlExt, IMediaBase
 
     public async Task SetSourceStorage(StorageFile file, CancellationToken cancel)
     {
-        using var decode = await this.DI<ICrypto>().DecryptFile(file.FilePath, file.Storage.Password, cancel);
+        var id = file.Storage.Guid;
+        using var decode = await this.DI<ICrypto>()
+            .DecryptFile(id, file.FilePath, file.Storage.Password, null, cancel);
         if (decode.IsCanceled)
             return;
 

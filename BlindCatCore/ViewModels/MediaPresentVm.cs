@@ -19,6 +19,7 @@ public class MediaPresentVm : BaseVm, IFileUnlocker
     private readonly ICrypto _crypto;
     private readonly LocalDir? _localDir;
     private readonly StorageDir? _storageDir;
+    private readonly IDataBaseService _databaseService;
     private readonly ISourceDir? _sourceDir;
     private readonly ISourceFile _sourceFile;
     private CancellationTokenSource _cancellationTokenSource = new();
@@ -32,12 +33,16 @@ public class MediaPresentVm : BaseVm, IFileUnlocker
         public IReadOnlyList<ISourceFile>? Album { get; set; }
         public required ISourceFile SourceFile { get; set; }
     }
-    public MediaPresentVm(Key key, IStorageService storageService, IDeclaratives declaratives, IViewModelResolver viewModelResolver, ICrypto crypto)
+    public MediaPresentVm(Key key, IStorageService storageService, IDeclaratives declaratives,
+        IViewModelResolver viewModelResolver,
+        ICrypto crypto,
+        IDataBaseService dataBaseService)
     {
         _storageService = storageService;
         _declaratives = declaratives;
         _viewModelResolver = viewModelResolver;
         _crypto = crypto;
+        _databaseService = dataBaseService;
         _sourceDir = key.SourceDir;
         _sourceFile = key.SourceFile;
         Album = key.Album;
@@ -57,7 +62,11 @@ public class MediaPresentVm : BaseVm, IFileUnlocker
                     var storageDir2 = (StorageDir)storageAlbum.SourceDir;
                     Controller = new StoragePresentController(this, storageDir2, sf, _crypto, _storageService, _declaratives, _viewModelResolver);
                 }
-
+                else
+                {
+                    throw new NotSupportedException("Unsupported source dir type");
+                }
+                
                 break;
             case LocalFile lf:
                 Controller = new LocalPresentController(this, _sourceDir as LocalDir, _declaratives, _viewModelResolver);
@@ -262,6 +271,7 @@ public class MediaPresentVm : BaseVm, IFileUnlocker
         var cancel = RefreshCancelation();
 
         OnFileLoading?.Invoke(this, file);
+        await TryUpdateFileSize(file);
         var format = ResolveFormatByExt(file.FileExtension);
         await View.SetSource(file, format, cancel);
 
@@ -273,6 +283,24 @@ public class MediaPresentVm : BaseVm, IFileUnlocker
     {
         RefreshCancelation();
         View.Stop();
+    }
+
+    private async Task TryUpdateFileSize(ISourceFile file)
+    {
+        if (file is not StorageFile sf)
+            return;
+        
+        // try restore file size
+        if (sf.OriginFileSize == null)
+        {
+            var storage = sf.Storage;
+            string? password = storage.Password;
+            if (password == null)
+                return;
+            
+            sf.OriginFileSize = _crypto.CalculateOgirinFileSize(storage.Guid, sf.FilePath, password);
+            await _databaseService.UpdateContent(storage.PathIndex, password, sf);
+        }
     }
 
     public static MediaFormats ResolveFormat(string filePath)

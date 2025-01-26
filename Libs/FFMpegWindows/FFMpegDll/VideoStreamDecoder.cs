@@ -26,13 +26,24 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
     private readonly int _streamIndex;
     private readonly Stream _streamSRC;
     private readonly AVRational _stream_time_base;
+    private readonly void* _sourceStreamPointer;
+    private readonly avio_alloc_context_read_packet_func _callbackRead;
+    private readonly avio_alloc_context_seek_func _callbackSeek;
     private bool _disposed;
-    private const int BUFFER_SIZE = 4096;
+    private const int BUFFER_SIZE = 8192;
 
     public VideoStreamDecoder(Stream source, AVHWDeviceType acceleration)
     {
         _streamSRC = source;
         _sourceStreamHandle = GCHandle.Alloc(new StreamWrapper(source), GCHandleType.Pinned);
+
+        _sourceStreamPointer = (void*)_sourceStreamHandle.AddrOfPinnedObject();
+
+        nint readCallbackPtr = Marshal.GetFunctionPointerForDelegate(ReadCallback);
+        _callbackRead = new avio_alloc_context_read_packet_func { Pointer = readCallbackPtr };
+
+        nint seekCallbackPtr = Marshal.GetFunctionPointerForDelegate(SeekCallback);
+        _callbackSeek = new avio_alloc_context_seek_func { Pointer = seekCallbackPtr };
 
         MakeContexts();
         ffmpeg.avformat_find_stream_info(_pFormatContext, null).ThrowExceptionIfError();
@@ -99,21 +110,57 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
         }
     }
 
+    public static long SeekCallback(void* @opaque, long @offset, int @whence)
+    {
+        var stream_pointer = (StreamWrapper*)opaque;
+        var streamWrapper = *stream_pointer;
+        var stream = streamWrapper.ResolveStream();
+        SeekOrigin origin;
+        switch (whence)
+        {
+            case 0: // Аналог SEEK_SET
+                stream.Seek(offset, SeekOrigin.Begin);
+                break;
+            case 1: // Аналог SEEK_CUR
+                stream.Seek(offset, SeekOrigin.Current);
+                break;
+            case 2: // Аналог SEEK_END
+                stream.Seek(offset, SeekOrigin.End);
+                break;
+            case 0x10000: // AVSEEK_SIZE (не перемещение, а запрос размера)
+                return stream.Length;
+            default:
+                return -1; // Возвращаем ошибку, если значение неизвестно
+        }
+        
+        return stream.Position;
+    }
+
     private void MakeContexts()
     {
+        if (_pAvioContext != null)
+        {
+            var avioContext = _pAvioContext;
+            ffmpeg.avio_context_free(&avioContext);
+        }
+
+        if (_pFormatContext != null)
+        {
+            var pFormatContext = _pFormatContext;
+            ffmpeg.avformat_close_input(&pFormatContext);
+        }
+
+        var _bufferPointer = (byte*)ffmpeg.av_malloc(BUFFER_SIZE);
+
         _pFormatContext = ffmpeg.avformat_alloc_context();
-
-        nint readCallbackPtr = Marshal.GetFunctionPointerForDelegate(ReadCallback);
-        var streamReadFunc = new avio_alloc_context_read_packet_func { Pointer = readCallbackPtr };
-
         _pAvioContext = ffmpeg.avio_alloc_context(
-            buffer: (byte*)ffmpeg.av_malloc(BUFFER_SIZE),
+            buffer: _bufferPointer,
             buffer_size: BUFFER_SIZE,
             write_flag: 0,
-            opaque: (void*)_sourceStreamHandle.AddrOfPinnedObject(),
-            read_packet: streamReadFunc,
+            opaque: _sourceStreamPointer,
+            read_packet: _callbackRead,
             write_packet: null,
-            seek: null
+            seek: _callbackSeek
         );
 
         if (_pAvioContext == null)
@@ -122,8 +169,8 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
         _pFormatContext->pb = _pAvioContext;
 
         // Открытие входного формата
-        var pFormatContext = _pFormatContext;
-        ffmpeg.avformat_open_input(&pFormatContext, null, null, null).ThrowExceptionIfError();
+        var pFormatContext2 = _pFormatContext;
+        ffmpeg.avformat_open_input(&pFormatContext2, null, null, null).ThrowExceptionIfError();
     }
 
     public void SeekTo(TimeSpan position)
@@ -135,14 +182,14 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
 
             if (position < FrameTime)
             {
-                var pFormatContext = _pFormatContext;
-                ffmpeg.avformat_close_input(&pFormatContext);
+                // var pFormatContext = _pFormatContext;
+                // ffmpeg.avformat_close_input(&pFormatContext);
+                //
+                // var pAvioContext = _pAvioContext;
+                // ffmpeg.avio_context_free(&pAvioContext);
 
-                var pAvioContext = _pAvioContext;
-                ffmpeg.avio_context_free(&pAvioContext);
-
-                _streamSRC.Position = 0;
-                MakeContexts();
+                // _streamSRC.Position = 0;
+                // MakeContexts();
             }
 
             var timestamp = (long)(position.TotalSeconds * ffmpeg.AV_TIME_BASE);
@@ -153,7 +200,7 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
         }
     }
 
-    public bool TryDecodeNextFrame(out AVFrame frame)
+    public bool TryDecodeNextFrame(out AVFrame frame, out bool endOfVideo)
     {
         lock (_locker)
         {
@@ -173,6 +220,7 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
                         if (error == ffmpeg.AVERROR_EOF)
                         {
                             frame = *_pFrame;
+                            endOfVideo = true;
                             return false;
                         }
 
@@ -201,6 +249,7 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
                 frame = ResolveFrame(*_pFrame);
             }
 
+            endOfVideo = false;
             return true;
         }
     }

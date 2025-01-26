@@ -1,16 +1,16 @@
-﻿using Avalonia;
-using Avalonia.Collections;
-using Avalonia.Controls;
-using Avalonia.Interactivity;
-using Avalonia.Media;
-using Avalonia.Metadata;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Collections;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Metadata;
 
 [assembly: XmlnsDefinition("https://github.com/avaloniaui", "BlindCatAvalonia.SDcontrols.Scaffold.GlobalXmlns")]
 namespace BlindCatAvalonia.SDcontrols.Scaffold.GlobalXmlns;

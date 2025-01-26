@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -5,10 +9,6 @@ using Avalonia.VisualTree;
 using BlindCatAvalonia.SDcontrols.Scaffold.Utils;
 using BlindCatCore.Core;
 using BlindCatCore.Models;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
 
 namespace BlindCatAvalonia.SDcontrols;
 
@@ -170,7 +170,7 @@ public partial class LoadingLayout : UserControl
             case nameof(LoadingToken.Title):
                 UpdateLabelTitle(token);
                 break;
-            // todo реализовать description для LoadingLayout
+            // todo пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ description пїЅпїЅпїЅ LoadingLayout
             //case nameof(LoadingToken.Description):
             //    UpdateLabelTitle(token);
             //    break;

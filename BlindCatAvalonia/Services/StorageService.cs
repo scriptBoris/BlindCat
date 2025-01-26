@@ -682,6 +682,7 @@ public class StorageService : IStorageService
                 matchFile.FilePreview = dbItem.FilePreview;
                 matchFile.EncryptionMethod = dbItem.EncryptionMethod;
                 matchFile.ParentAlbumGuid = dbItem.ParentAlbumGuid;
+                matchFile.OriginFileSize = dbItem.OriginFileSize;
 
                 if (matchFile.ParentAlbumGuid != null)
                 {

@@ -1,19 +1,19 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
-using Avalonia.Media.Imaging;
-using Avalonia.Media;
-using Avalonia.Platform;
 using Avalonia.Controls;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
+using Avalonia.Rendering.SceneGraph;
 using Avalonia.Threading;
 using BlindCatAvalonia.Core;
-using IntSize = System.Drawing.Size;
-using Avalonia.Rendering.SceneGraph;
-using System.Collections.Generic;
-using System.Linq;
-using System.Diagnostics;
 using BlindCatCore.Core;
-using System.Threading.Tasks;
-using System.Threading;
+using IntSize = System.Drawing.Size;
 
 namespace BlindCatAvalonia.MediaPlayers.Surfaces;
 
@@ -73,7 +73,7 @@ public class SoftwareRenderSurface : Control, IVideoSurface
             var frameData = reuseContext.GetFrame();
             if (frameData == null)
                 return;
-
+            
             var bmp = bitmapPool.Resolve();
             var bitmapSize = reuseContext.PixelSize;
             using (var vok = bmp.Lock())

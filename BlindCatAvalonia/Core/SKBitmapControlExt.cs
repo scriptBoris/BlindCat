@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Skia;
 using Avalonia.Interactivity;
@@ -10,7 +11,6 @@ using Avalonia.Rendering;
 using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
 using SkiaSharp;
-using System;
 
 namespace BlindCatAvalonia.Core;
 

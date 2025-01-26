@@ -1,12 +1,12 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System;
 using System.Diagnostics;
-using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Threading.Tasks;
 using System.Threading;
+using System.Threading.Tasks;
+using BlindCatAvalonia.Services;
 using FFMpegProcessor;
 using FFMpegProcessor.Models;
-using BlindCatAvalonia.Services;
 
 namespace BlindCatAvalonia.Core;
 

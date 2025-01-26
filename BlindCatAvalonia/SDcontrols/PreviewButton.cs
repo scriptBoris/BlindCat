@@ -1,4 +1,12 @@
-﻿using Avalonia;
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Input;
+using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -12,14 +20,6 @@ using Avalonia.Metadata;
 using Avalonia.VisualTree;
 using BlindCatAvalonia.Core;
 using BlindCatCore.Core;
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Input;
 
 namespace BlindCatAvalonia.SDcontrols;
 

@@ -59,7 +59,9 @@ public class FFMpegProcessorService : IFFMpegService
                     video = new VideoReader2(path, PathToFFmpegExe, PathToFFprobeExe);
                     break;
                 case EncryptionMethods.dotnet:
-                    var dec = await _crypto.DecryptFile(path, password, cancel);
+                    var id = enc.Value.Storageid;
+                    var size = enc.Value.OriginFileSize;
+                    var dec = await _crypto.DecryptFile(id, path, password, size, cancel);
                     if (dec.IsFault)
                         return dec.AsError;
 
@@ -302,7 +304,9 @@ public class FFMpegProcessorService : IFFMpegService
             }
             else
             {
-                using var dec = await _crypto.DecryptFile(imgPath, enc.Password, cancel);
+                var id = enc.Storageid;
+                var og_size = enc.OriginFileSize;
+                using var dec = await _crypto.DecryptFile(id, imgPath, enc.Password, og_size, cancel);
                 if (dec.IsFault)
                     return dec.AsError;
 

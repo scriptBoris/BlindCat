@@ -101,5 +101,16 @@ public class MoovFixResult
 public struct EncryptionArgs
 {
     public EncryptionMethods EncryptionMethod { get; set; }
+    
+    /// <summary>
+    /// Идентификатор хранилища
+    /// </summary>
+    public Guid Storageid { get; set; }
+    
+    /// <summary>
+    /// Размер файла до шифрования
+    /// </summary>
+    public long? OriginFileSize { get; set; }
+    
     public string? Password { get; set; }
 }

@@ -27,7 +27,7 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using BlindCatAvalonia.SDcontrols.Scaffold.GlobalXmlns;
 
-namespace BlindCatAvalonia;
+namespace BlindCatAvalonia.Views;
 
 public partial class MediaPresentView : Grid, MediaPresentVm.IPresentedView
 {
@@ -55,7 +55,7 @@ public partial class MediaPresentView : Grid, MediaPresentVm.IPresentedView
                     DirPath = @"C:\data",
                 },
                 SourceFile = file,
-            }, new DesignStorageService(), null, null, null)
+            }, new DesignStorageService(), null, null, null, null)
             {
                 NavigationService = null,
                 ViewModelResolver = null,
@@ -172,10 +172,12 @@ public partial class MediaPresentView : Grid, MediaPresentVm.IPresentedView
         var file = _vm.CurrentFile;
         var storageSrv = App.ServiceProvider.GetRequiredService<IStorageService>();
         string? password = storageSrv.CurrentStorage.Password;
-
+        var id = storageSrv.CurrentStorage.Guid;
+        long? size = null;
+        
         using var busy = _vm.Loading();
         var crypto = App.ServiceProvider.GetRequiredService<ICrypto>();
-        using var dec = await crypto.DecryptFile(file.FilePath, password, CancellationToken.None);
+        using var dec = await crypto.DecryptFile(id, file.FilePath, password, size, CancellationToken.None);
         if (dec.IsFault)
         {
             await _vm.HandleError(dec);

@@ -1,3 +1,6 @@
+using System;
+using System.Reflection.Metadata;
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
@@ -5,11 +8,8 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using BlindCatAvalonia.SDcontrols;
 using BlindCatAvalonia.SDcontrols.Scaffold.Args;
-using BlindCatCore.Core;
-using System;
-using System.Reflection.Metadata;
-using System.Windows.Input;
 using BlindCatAvalonia.SDcontrols.Scaffold.GlobalXmlns;
+using BlindCatCore.Core;
 using Scaffolt = global::BlindCatAvalonia.SDcontrols.Scaffold.GlobalXmlns.Scaffold;
 
 namespace BlindCatAvalonia.SDcontrols.Scaffold.Utils;

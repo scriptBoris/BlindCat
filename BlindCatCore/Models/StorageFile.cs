@@ -28,6 +28,7 @@ public class StorageFile : BaseNotify, ISourceFile, IStorageElement
     public string FileExtension => $".{CachedMediaFormat.ToString().ToLower()}";
     public string? FilePreview { get; set; }
     public EncryptionMethods EncryptionMethod { get; set; }
+    public long? OriginFileSize { get; set; }
 
     /// <summary>
     /// Указывает на то, что данный файл еще не в хранилище, не индексирован,

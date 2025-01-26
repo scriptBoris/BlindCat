@@ -78,7 +78,7 @@ public sealed unsafe class VideoFileDecoder : IVideoDecoder, IDisposable
         ffmpeg.av_seek_frame(_pFormatContext, -1, timestamp, ffmpeg.AVSEEK_FLAG_BACKWARD);
     }
 
-    public bool TryDecodeNextFrame(out AVFrame frame)
+    public bool TryDecodeNextFrame(out AVFrame frame, out bool endOfVideo)
     {
         lock (_locker)
         {
@@ -102,6 +102,7 @@ public sealed unsafe class VideoFileDecoder : IVideoDecoder, IDisposable
                         {
                             //frame = *_pFrame;
                             frame = ResolveFrame(*_pFrame);
+                            endOfVideo = true;
                             return false;
                         }
 
@@ -132,7 +133,7 @@ public sealed unsafe class VideoFileDecoder : IVideoDecoder, IDisposable
             }
 
             frame = ResolveFrame(*tframe);
-
+            endOfVideo = false;
             return true;
         }
     }

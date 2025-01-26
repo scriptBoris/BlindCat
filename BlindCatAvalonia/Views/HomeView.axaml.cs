@@ -13,7 +13,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace BlindCatAvalonia;
+namespace BlindCatAvalonia.Views;
 
 public partial class HomeView : UserControl
 {

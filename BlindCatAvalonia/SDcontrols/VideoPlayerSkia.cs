@@ -1,36 +1,30 @@
-﻿using Avalonia.Controls.Skia;
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Media.Immutable;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 using BlindCatAvalonia.Core;
+using BlindCatAvalonia.MediaPlayers.Surfaces;
+using BlindCatAvalonia.Services;
 using BlindCatCore.Core;
 using BlindCatCore.Enums;
-using BlindCatCore.Extensions;
 using BlindCatCore.Models;
 using BlindCatCore.Services;
 using FFMpegProcessor;
 using FFMpegProcessor.Models;
 using SkiaSharp;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.ObjectModel;
-using Avalonia.Media.Imaging;
-using BlindCatAvalonia.Services;
-using System.Collections.Concurrent;
-using Avalonia;
-using Avalonia.Platform;
 using IntSize = System.Drawing.Size;
-using Avalonia.Controls;
-using BlindCatAvalonia.MediaPlayers.Surfaces;
 
-namespace BlindCatAvalonia.MediaPlayers;
+namespace BlindCatAvalonia.SDcontrols;
 
 public class VideoPlayerSkia : Control, IMediaPlayer
 {
@@ -41,8 +35,8 @@ public class VideoPlayerSkia : Control, IMediaPlayer
     private readonly IStorageService _storageService;
     private readonly IAudioService _audioService;
 
-    private double progress;
-    private double progressTick;
+    private double _progress;
+    private double _progressTick;
     private bool isDisposed;
     private SKBitmap? _currentFrame;
     private VideoEngine? videoEngine;
@@ -54,7 +48,6 @@ public class VideoPlayerSkia : Control, IMediaPlayer
     private MediaPlayerStates _state = MediaPlayerStates.None;
     private double? _forceScale;
     private System.Drawing.PointF _offset;
-
 
     /// <summary>
     /// Видео доигралось до своего конца
@@ -256,7 +249,7 @@ public class VideoPlayerSkia : Control, IMediaPlayer
     private async void SkiaFFmpegVideoPlayer_VideoPlayingToEnd(object? sender, EventArgs e)
     {
         if (currentSource == null || videoEngine == null)
-            return;
+            throw new InvalidOperationException();
 
         if (!Dispatcher.UIThread.CheckAccess())
             throw new InvalidOperationException("Required execution on main thread");
@@ -290,7 +283,7 @@ public class VideoPlayerSkia : Control, IMediaPlayer
 
         if (videoEngine != null)
         {
-            videoEngine.MayFetchFrame -= FetchBitmap;
+            videoEngine.FrameReady -= OnFrameReady;
             videoEngine.Dispose();
             videoEngine = null;
         }
@@ -317,8 +310,9 @@ public class VideoPlayerSkia : Control, IMediaPlayer
 
         if (cachedVideoMeta != null && cachedVideoMeta.Streams.Length > 0 && cachedVideoMeta.Streams.Any(x => x.IsVideo))
         {
-            videoEngine = new VideoEngine(videoSource, startFrom, cachedVideoMeta!, _ffmpeg.PathToFFmpegExe);
-            videoEngine.MayFetchFrame += FetchBitmap;
+            videoEngine = new VideoEngine(videoSource, startFrom, cachedVideoMeta!);
+            videoEngine.FrameReady += OnFrameReady;
+            videoEngine.EndOfVideo += OnEndOfVideo;
         }
 
         // init
@@ -345,7 +339,7 @@ public class VideoPlayerSkia : Control, IMediaPlayer
         timerProgress.Elapsed += TimerProgress_Elapsed;
         timerProgress.AutoReset = true;
         CalculateProgress(startFrom);
-        progressTick = rateMs / Duration.TotalMilliseconds;
+        _progressTick = rateMs / Duration.TotalMilliseconds;
         ReuseContext = new ReuseContextSkia(new IntSize(cachedVideoMeta.Width, cachedVideoMeta.Height), videoEngine);
         InvalidateMeasure();
         _surface.SetupSource(ReuseContext);
@@ -361,39 +355,44 @@ public class VideoPlayerSkia : Control, IMediaPlayer
 
     private void CalculateProgress(TimeSpan startFrom)
     {
-        progress = (Duration.TotalSeconds > 0 && startFrom.TotalSeconds > 0) ? (double)(startFrom.TotalSeconds / Duration.TotalSeconds) : 0;
+        _progress = (Duration.TotalSeconds > 0 && startFrom.TotalSeconds > 0) ? (double)(startFrom.TotalSeconds / Duration.TotalSeconds) : 0;
     }
 
     private void TimerProgress_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
     {
         lock (_lock)
         {
-            progress += progressTick;
-            if (progress >= 1)
+            _progress += _progressTick;
+            if (_progress >= 1)
             {
-                progress = 1;
-                if (sender is System.Timers.Timer self)
-                    self.Stop();
+                _progress = 1;
+                // if (sender is System.Timers.Timer self)
+                //     self.Stop();
 
-                Dispatcher.UIThread.Post(() =>
-                {
-                    VideoPlayingToEnd.Invoke(this, EventArgs.Empty);
-                });
+                // Dispatcher.UIThread.Post(() =>
+                // {
+                //     VideoPlayingToEnd.Invoke(this, EventArgs.Empty);
+                // });
             }
 
-            PlayingProgressChanged?.Invoke(this, progress);
+            PlayingProgressChanged?.Invoke(this, _progress);
         }
     }
 
-    private void FetchBitmap(object? invoker, IFrameData frameData)
+    private void OnFrameReady(object? invoker, IFrameData frameData)
     {
         var ct = ReuseContext as ReuseContextSkia;
         ct?.Push(frameData);
         _surface.OnFrameReady();
     }
 
+    private void OnEndOfVideo(object? invoker, EventArgs eventArgs)
+    {
+        VideoPlayingToEnd?.Invoke(this, eventArgs);
+    }
+
     #region media player
-    public TimeSpan PlayingPosition => progress * Duration;
+    public TimeSpan PlayingPosition => _progress * Duration;
     public TimeSpan Duration
     {
         get
@@ -487,7 +486,7 @@ public class VideoPlayerSkia : Control, IMediaPlayer
 
             if (videoEngine != null)
             {
-                videoEngine.MayFetchFrame -= FetchBitmap;
+                videoEngine.FrameReady -= OnFrameReady;
                 videoEngine.Dispose();
                 videoEngine = null;
             }
@@ -520,12 +519,12 @@ public class VideoPlayerSkia : Control, IMediaPlayer
         }
     }
 
-    public async Task SeekTo(double progress, CancellationToken cancellation)
+    public async Task SeekTo(double seekProgress, CancellationToken cancellation)
     {
         if (cachedVideoMeta == null || currentSource == null || videoEngine == null)
             return;
 
-        double durationAsSeconds = Duration.TotalSeconds * progress;
+        double durationAsSeconds = Duration.TotalSeconds * seekProgress;
         var time = TimeSpan.FromSeconds(durationAsSeconds);
 
         if (videoEngine.CanSeeking)
@@ -575,6 +574,8 @@ public class VideoPlayerSkia : Control, IMediaPlayer
 
         VideoReader2? videoProc = null;
         AudioReader? audioProc = null;
+        var id = secureFile.Storage.Guid;
+        long? size = secureFile.OriginFileSize;
 
         try
         {
@@ -593,14 +594,14 @@ public class VideoPlayerSkia : Control, IMediaPlayer
             }
             else if (secureFile.EncryptionMethod == EncryptionMethods.dotnet)
             {
-                var decryptvideo = await _crypto.DecryptFile(secureFile.FilePath, password, cancel);
+                var decryptvideo = await _crypto.DecryptFile(id, secureFile.FilePath, password, size, cancel);
                 if (decryptvideo.IsFault)
                 {
                     Debug.WriteLine(decryptvideo.MessageForLog);
                     return;
                 }
 
-                var decryptaudio = await _crypto.DecryptFile(secureFile.FilePath, password, cancel);
+                var decryptaudio = await _crypto.DecryptFile(id, secureFile.FilePath, password, size, cancel);
                 if (decryptaudio.IsFault)
                 {
                     Debug.WriteLine(decryptvideo.MessageForLog);

@@ -8,7 +8,7 @@
     xmlns:models="using:BlindCatCore.Models"
     xmlns:sd="using:BlindCatAvalonia.SDcontrols"
     xmlns:vm="clr-namespace:BlindCatCore.ViewModels;assembly=BlindCatCore"
-    x:Class="BlindCatAvalonia.HomeView"
+    x:Class="BlindCatAvalonia.Views.HomeView"
     x:DataType="vm:HomeVm"
     Name="root"
     Padding="10"

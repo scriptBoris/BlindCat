@@ -64,6 +64,9 @@ public class DataBaseService : IDataBaseService
 
         // parent album guid
         destination.Parent = source.ParentAlbumGuid;
+        
+        // file size
+        destination.OriginFileSize = source.OriginFileSize;
     }
 
     private void Map(ContentStorageDb source, StorageFile destination, string? password)
@@ -108,6 +111,9 @@ public class DataBaseService : IDataBaseService
 
         // parent album guid
         destination.ParentAlbumGuid = source.Parent;
+        
+        // file size
+        destination.OriginFileSize = source.OriginFileSize;
     }
 
     private void MapAlbum(AlbumStorageDb source, StorageAlbum destination, string? password)

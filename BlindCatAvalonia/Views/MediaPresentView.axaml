@@ -3,10 +3,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:mp="using:BlindCatAvalonia.MediaPlayers"
     xmlns:sd="using:BlindCatAvalonia.SDcontrols"
     xmlns:vm="using:BlindCatCore.ViewModels"
-    x:Class="BlindCatAvalonia.MediaPresentView"
+    x:Class="BlindCatAvalonia.Views.MediaPresentView"
     x:DataType="vm:MediaPresentVm"
     x:Name="root"
     d:DesignHeight="450"
@@ -20,12 +19,12 @@
     mc:Ignorable="d">
 
     <!--players: pics-->
-    <mp:ImageSkia
+    <sd:ImageSkia
         x:Name="imageSkia"
         HorizontalAlignment="Stretch"
         VerticalAlignment="Stretch"
         IsVisible="False">
-        <mp:ImageSkia.ContextMenu>
+        <sd:ImageSkia.ContextMenu>
             <ContextMenu>
                 <!--Copy-->
                 <MenuItem
@@ -39,15 +38,15 @@
                     Header="Export"
                     IsVisible="{Binding IsEncryptedFile}"/>
             </ContextMenu>
-        </mp:ImageSkia.ContextMenu>
-    </mp:ImageSkia>
+        </sd:ImageSkia.ContextMenu>
+    </sd:ImageSkia>
 
     <!--players: video-->
-    <mp:VideoPlayerSkia
+    <sd:VideoPlayerSkia
         x:Name="videoPlayerSkia"
         Grid.Column="0"
         IsVisible="False">
-        <mp:VideoPlayerSkia.ContextMenu>
+        <sd:VideoPlayerSkia.ContextMenu>
             <ContextMenu>
                 <!--Copy-->
                 <MenuItem
@@ -58,8 +57,8 @@
                     Header="Export"
                     IsVisible="{Binding IsEncryptedFile}"/>
             </ContextMenu>
-        </mp:VideoPlayerSkia.ContextMenu>
-    </mp:VideoPlayerSkia>
+        </sd:VideoPlayerSkia.ContextMenu>
+    </sd:VideoPlayerSkia>
 
     <!--right panel-->
     <ContentControl
@@ -71,7 +70,9 @@
         IsVisible="{Binding Controller.RightViewPanel, Converter={StaticResource IsNotNull}}"/>
 
     <!--shadow-->
-    <Grid IsVisible="False">
+    <Grid
+        Grid.Column="0"
+        IsVisible="False">
         <StackPanel
             Height="70"
             VerticalAlignment="Top">
@@ -98,6 +99,7 @@
     <!--error msg-->
     <Grid
         x:Name="errorPanel"
+        Grid.Column="0"
         Background="#80000000"
         IsVisible="False">
         <StackPanel VerticalAlignment="Center">
@@ -121,10 +123,12 @@
 
     <!--loading-->
     <sd:LoadingLayout
+        Grid.Column="0"
         IsVisible="false"
         SubscribeFor="playerLoading"/>
 
     <Grid
+        Grid.Column="0"
         VerticalAlignment="Bottom"
         RowDefinitions="Auto, Auto">
 

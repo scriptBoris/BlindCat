@@ -10,15 +10,15 @@ namespace BlindCatCore.Core;
 
 public class TubeStream : Stream
 {
-    private readonly Func<long, AppResponse<CryptoStream>> _remake;
+    private readonly Func<CryptoStream?> _remake;
     private CryptoStream _source;
     private readonly long _length;
     private long _position;
 
-    public TubeStream(CryptoStream source, long dataLength, Func<long, AppResponse<CryptoStream>> remake)
+    public TubeStream(CryptoStream source, long originFileSize, Func<CryptoStream?> remake)
     {
         _source = source;
-        _length = dataLength;
+        _length = originFileSize;
         _remake = remake;
     }
 
@@ -61,19 +61,33 @@ public class TubeStream : Stream
                 throw new ArgumentOutOfRangeException(nameof(origin), "Invalid SeekOrigin value.");
         }
 
-        if (newPosition == Position)
-            return newPosition;
-
-        _source.Dispose();
-        var nev = _remake(newPosition);
-        if (nev.IsFault && !nev.IsCanceled)
-        {
-            throw new IOException(nev.Description, nev.Exception);
+        if (newPosition > Position)
+        {   
+            // fast read next
+            SeekThroughRead(_source, Position, newPosition);
+            _position = newPosition;
+            return _position;
         }
+        else if (newPosition < Position)
+        {
+            // remake
+            _source.Dispose();
+            var nev = _remake();
+            if (nev == null)
+            {
+                throw new IOException();
+            }
 
-        _source = nev.Result;
-        _position = newPosition;
-        return _position;
+            SeekThroughRead(nev, 0, newPosition);
+            _source = nev;
+            _position = newPosition;
+            return _position;
+        }
+        else
+        {
+            // do nothing
+            return newPosition;
+        }
     }
 
     public override int Read(byte[] buffer, int offset, int count)
@@ -144,5 +158,31 @@ public class TubeStream : Stream
     public override void Write(byte[] buffer, int offset, int count)
     {
         throw new NotSupportedException();
+    }
+    
+    private long SeekThroughRead(Stream stream, long currentPos, long targetPosition)
+    {
+        const int bufferSize = 4096; // Размер буфера для пропуска данных
+        var buffer = new byte[bufferSize];
+        long currentPosition = currentPos;
+
+        while (currentPosition < targetPosition)
+        {
+            // Сколько данных нужно пропустить
+            long remaining = targetPosition - currentPosition;
+            int bytesToRead = (int)Math.Min(bufferSize, remaining);
+
+            // Читаем данные и обновляем текущую позицию
+            int bytesRead = stream.Read(buffer, 0, bytesToRead);
+            if (bytesRead == 0)
+            {
+                // Достигнут конец потока
+                throw new InvalidOperationException("Cannot seek beyond the end of the stream.");
+            }
+
+            currentPosition += bytesRead;
+        }
+
+        return currentPosition; // Возвращаем новую позицию (должна совпадать с targetPosition)
     }
 }

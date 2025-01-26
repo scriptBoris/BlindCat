@@ -1,21 +1,26 @@
-﻿using BlindCatCore.Core;
+﻿using System.Collections.Concurrent;
+using BlindCatCore.Core;
 using BlindCatCore.Enums;
 using BlindCatCore.Extensions;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Unicode;
-using System.Threading.Channels;
 
 namespace BlindCatCore.Services;
 
 public interface ICrypto
 {
     Task EncryptFile(string inputFile, string outputFile, string password);
-    Task<AppResponse> EncryptFile(string inputFile, string outputFile, string password, EncryptionMethods from, EncryptionMethods to);
+
+    Task<AppResponse> EncryptFile(string inputFile, string outputFile, string password, EncryptionMethods from,
+        EncryptionMethods to);
+
     Task EncryptFile(Stream inputStreamFile, string outputFile, string password);
-    Task<AppResponse<Stream>> DecryptFile(string inputFile, string? password, CancellationToken cancel);
-    Stream? DecryptFileFast(string inputFile, string? password);
+
+    Task<AppResponse<Stream>> DecryptFile(Guid storageId, string inputFile, string? password, long? fileSize,
+        CancellationToken cancel);
+
+    Stream? DecryptFileFast(Guid storageId, string inputFile, string? password, long? fileSize);
 
     string DecryptString(string encryptedText, string password);
     string EncryptString(string plainText, string password);
@@ -25,17 +30,16 @@ public interface ICrypto
 
     string ToCENCPassword(string passwordText);
     string GetKid();
+    long CalculateOgirinFileSize(Guid storageId, string filePath, string password);
 }
 
 public class Crypto : ICrypto
 {
     private readonly byte[] _salt = [0x12, 0xdc, 0xab, 0x28, 0xcc, 0x6d, 0xce, 0xb9];
-    private readonly object _locker = new();
-    private PasswordDeriveBytes? secretKey;
-    private Aes? aesAlg;
-    private ICryptoTransform? cryptoTransform;
+    private ConcurrentDictionary<Guid, CryptoCacheItem> _cache = new();
 
-    public async Task<AppResponse> EncryptFile(string inputFile, string outputFile, string password, EncryptionMethods from, EncryptionMethods to)
+    public async Task<AppResponse> EncryptFile(string inputFile, string outputFile, string password,
+        EncryptionMethods from, EncryptionMethods to)
     {
         string target = outputFile;
         if (inputFile == outputFile)
@@ -53,15 +57,16 @@ public class Crypto : ICrypto
         {
             if (from == EncryptionMethods.dotnet)
             {
-                using var dec = await DecryptFile(outputFile, password, CancellationToken.None);
-                if (dec.IsFault)
-                    return dec.AsError;
-
-                var decodedstream = dec.Result;
-                //var conv = await _fFMpegService.EncodeVideoTo_Mp4_CENC(decodedstream, target, password);
-                var conv = await EncodeVideoTo_Mp4_CENC(decodedstream, target, password);
-                if (conv.IsFault)
-                    return conv.AsError;
+                throw new NotImplementedException();
+                // using var dec = await DecryptFile(outputFile, password, CancellationToken.None);
+                // if (dec.IsFault)
+                //     return dec.AsError;
+                //
+                // var decodedstream = dec.Result;
+                // //var conv = await _fFMpegService.EncodeVideoTo_Mp4_CENC(decodedstream, target, password);
+                // var conv = await EncodeVideoTo_Mp4_CENC(decodedstream, target, password);
+                // if (conv.IsFault)
+                //     return conv.AsError;
             }
             else if (from == EncryptionMethods.None)
             {
@@ -109,7 +114,6 @@ public class Crypto : ICrypto
         using var aesAlg = Aes.Create();
         aesAlg.Key = secretKey.GetBytes(aesAlg.KeySize / 8);
         aesAlg.GenerateIV();
-        //aesAlg.IV = secretKey.GetBytes(aesAlg.BlockSize / 8);
 
         // Создание потока для записи зашифрованных данных
         using var streamOut = new FileStream(outputFile, FileMode.Create);
@@ -145,17 +149,24 @@ public class Crypto : ICrypto
         await fsIn.CopyToAsync(cs);
     }
 
-    public async Task<AppResponse<Stream>> DecryptFile(string inputFile, string? password, CancellationToken cancel)
+    public async Task<AppResponse<Stream>> DecryptFile(Guid storageId, string inputFile, string? password,
+        long? fileSize, CancellationToken cancel)
     {
         if (password == null)
             return AppResponse.Error("Password required");
 
-        // Генерация ключа и IV на основе пароля
-        using var secretKey = new PasswordDeriveBytes(password, _salt);
+        var cache = _cache.GetOrAdd(storageId, (guid) =>
+        {
+            return new CryptoCacheItem
+            {
+                StorageId = guid,
+                SecretKey = new PasswordDeriveBytes(password, _salt),
+            }.Commit();
+        });
 
         // Создание AES-шифратора
         using var aesAlg = Aes.Create();
-        aesAlg.Key = secretKey.GetBytes(aesAlg.KeySize / 8);
+        aesAlg.Key = cache.KeyBytes;
 
         long payloadLength = 0;
         FileStream encriptedStream = null!;
@@ -166,20 +177,15 @@ public class Crypto : ICrypto
             // Чтение IV из начала зашифрованного файла
             try
             {
-                int blockSizeInBytes = aesAlg.BlockSize / 8;
-                byte[] iv = new byte[blockSizeInBytes];
+                byte[] iv = new byte[aesAlg.BlockSize / 8];
                 encriptedStream = new FileStream(inputFile, FileMode.Open, FileAccess.Read, FileShare.Read);
                 encriptedStream.Read(iv, 0, iv.Length);
                 aesAlg.IV = iv;
 
-                payloadLength = encriptedStream.Length - encriptedStream.Position;
-                // Вычисляем приблизительный размер дешифрованных данных
-
-                // Учитываем, что последний блок может содержать выравнивание (padding)
-                //if (payloadLength % blockSizeInBytes == 0)
-                //{
-                //    payloadLength -= blockSizeInBytes; // Один полный блок может быть padding
-                //}
+                if (fileSize != null)
+                    payloadLength = fileSize.Value;
+                else
+                    payloadLength = encriptedStream.Length - encriptedStream.Position;
                 break;
             }
             catch (Exception ex1)
@@ -204,42 +210,38 @@ public class Crypto : ICrypto
         }
 
         // новый подход
-        var remake = (long offset) => DecryptFileSync(inputFile, password, offset);
+        var remake = () => RemakeDecryptFileSync(storageId, inputFile, password);
         var cryptoStream = new CryptoStream(encriptedStream, aesAlg.CreateDecryptor(), CryptoStreamMode.Read);
         var tube = new TubeStream(cryptoStream, payloadLength, remake);
         return AppResponse.Result<Stream>(tube);
     }
 
-    public Stream? DecryptFileFast(string inputFile, string? password)
+    public Stream? DecryptFileFast(Guid storageId, string inputFile, string? password, long? fileSize)
     {
         if (password == null)
             return null;
-
-        lock (_locker)
+        
+        var cache = _cache.GetOrAdd(storageId, (guid) =>
         {
-            // TODO Временно тест, срочно убрать ТЕСТ КОД
-            // Генерация ключа и IV на основе пароля
-            secretKey ??= new PasswordDeriveBytes(password, _salt);
-
-            // Создание AES-шифратора
-            if (aesAlg == null)
+            return new CryptoCacheItem
             {
-                aesAlg = Aes.Create();
-                aesAlg.Key = secretKey.GetBytes(aesAlg.KeySize / 8);
-            }
-        }
+                StorageId = guid,
+                SecretKey = new PasswordDeriveBytes(password, _salt),
+            }.Commit();
+        });
+
+        using var aesAlg = Aes.Create();
+        aesAlg.Key = cache.KeyBytes;
 
         // Чтение IV из начала зашифрованного файла
         try
         {
-            int blockSizeInBytes = aesAlg.BlockSize / 8;
-            byte[] iv = new byte[blockSizeInBytes];
+            byte[] iv = new byte[aesAlg.BlockSize / 8];
             var encriptedStream = new FileStream(inputFile, FileMode.Open, FileAccess.Read, FileShare.Read);
             encriptedStream.Read(iv, 0, iv.Length);
             aesAlg.IV = iv;
 
             var cryptoTransform = aesAlg.CreateDecryptor();
-
             var cryptoStream = new CryptoStream(encriptedStream, cryptoTransform, CryptoStreamMode.Read);
             return cryptoStream;
         }
@@ -249,50 +251,36 @@ public class Crypto : ICrypto
         }
     }
 
-    private AppResponse<CryptoStream> DecryptFileSync(string inputFile, string password, long offset)
+    private CryptoStream? RemakeDecryptFileSync(Guid storageId, string inputFile, 
+        string password)
     {
-        if (password == null)
-            return AppResponse.Error("Password required");
-
-        // Генерация ключа и IV на основе пароля
-        using var secretKey = new PasswordDeriveBytes(password, _salt);
-
-        // Создание AES-шифратора
-        using var aesAlg = Aes.Create();
-        aesAlg.Key = secretKey.GetBytes(aesAlg.KeySize / 8);
-
-        FileStream encriptedStream = null!;
-        int tryCount = 3;
-        Exception? ex = null;
-        while (tryCount > 0)
+        var cache = _cache.GetOrAdd(storageId, (guid) =>
         {
-            // Чтение IV из начала зашифрованного файла
-            try
+            return new CryptoCacheItem
             {
-                byte[] iv = new byte[aesAlg.BlockSize / 8];
-                encriptedStream = new FileStream(inputFile, FileMode.Open, FileAccess.Read, FileShare.Read);
-                encriptedStream.Read(iv, 0, iv.Length);
-                aesAlg.IV = iv;
-                break;
-            }
-            catch (Exception ex1)
-            {
-                ex = ex1;
-                tryCount--;
-            }
-        }
+                StorageId = guid,
+                SecretKey = new PasswordDeriveBytes(password, _salt),
+            }.Commit();
+        });
+        
+        using var aesAlg = Aes.Create();
+        aesAlg.Key = cache.KeyBytes;
 
-        if (tryCount == 0)
-            return AppResponse.Error("Fail open file stream", 99907, ex);
+        FileStream encriptedStream;
+        try
+        {
+            byte[] iv = new byte[aesAlg.BlockSize / 8];
+            encriptedStream = new FileStream(inputFile, FileMode.Open, FileAccess.Read, FileShare.Read);
+            encriptedStream.Read(iv, 0, iv.Length);
+            aesAlg.IV = iv;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
 
         var cryptoStream = new CryptoStream(encriptedStream, aesAlg.CreateDecryptor(), CryptoStreamMode.Read);
-
-        if (offset != 0)
-        {
-            cryptoStream.Seek(offset, SeekOrigin.Begin);
-        }
-
-        return AppResponse.Result(cryptoStream);
+        return cryptoStream;
     }
 
     public string EncryptString(string plainText, string password)
@@ -366,6 +354,7 @@ public class Crypto : ICrypto
 
                 res = Encoding.UTF8.GetString(ms.ToArray());
             }
+
             return res;
 
             // Создание потока для чтения расшифрованных данных
@@ -459,6 +448,7 @@ public class Crypto : ICrypto
 
                 res = BitConverter.ToInt64(ms.ToArray());
             }
+
             return res;
         }
         catch (Exception ex)
@@ -498,5 +488,84 @@ public class Crypto : ICrypto
     public virtual string GetKid()
     {
         throw new NotImplementedException();
+    }
+
+    private long SeekThroughRead(Stream stream, long currentPosition, long targetPosition)
+    {
+        const int bufferSize = 4096; // Размер буфера для пропуска данных
+        var buffer = new byte[bufferSize];
+
+        while (currentPosition < targetPosition)
+        {
+            // Сколько данных нужно пропустить
+            long remaining = targetPosition - currentPosition;
+            int bytesToRead = (int)Math.Min(bufferSize, remaining);
+
+            // Читаем данные и обновляем текущую позицию
+            int bytesRead = stream.Read(buffer, 0, bytesToRead);
+            if (bytesRead == 0)
+            {
+                // Достигнут конец потока
+                throw new InvalidOperationException("Cannot seek beyond the end of the stream.");
+            }
+
+            currentPosition += bytesRead;
+        }
+
+        return currentPosition; // Возвращаем новую позицию (должна совпадать с targetPosition)
+    }
+
+    public long CalculateOgirinFileSize(Guid storageId, string encryptedFilePath, string password)
+    {
+        const int ivSize = 16;
+
+        // Открываем зашифрованный файл
+        using var stream = new FileStream(encryptedFilePath, FileMode.Open, FileAccess.Read);
+
+        // Проверяем минимальную длину файла
+        if (stream.Length <= ivSize)
+            throw new InvalidOperationException("Файл слишком мал для расшифровки.");
+
+        // Считываем IV
+        byte[] iv = new byte[ivSize];
+        stream.Read(iv, 0, ivSize);
+
+        // Настраиваем шифрование
+        using var secretKey = new PasswordDeriveBytes(password, _salt);
+        using var aesAlg = Aes.Create();
+        aesAlg.Key = secretKey.GetBytes(aesAlg.KeySize / 8);
+        aesAlg.IV = iv;
+
+        // aesAlg.Padding = PaddingMode.PKCS7;
+        // aesAlg.Mode = CipherMode.CBC;
+
+        // Открываем поток для расшифровки
+        using var decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
+        using var cryptoStream = new CryptoStream(stream, decryptor, CryptoStreamMode.Read);
+
+        // Читаем расшифрованные данные и считаем их длину
+        long totalBytesRead = 0;
+        byte[] buffer = new byte[4096];
+        int bytesRead;
+
+        while ((bytesRead = cryptoStream.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            totalBytesRead += bytesRead;
+        }
+
+        return totalBytesRead;
+    }
+
+    private class CryptoCacheItem
+    {
+        public Guid StorageId { get; set; }
+        public PasswordDeriveBytes SecretKey { get; set; }
+        public byte[] KeyBytes { get; set; }
+
+        public CryptoCacheItem Commit()
+        {
+            KeyBytes = SecretKey.GetBytes(32);
+            return this;
+        }
     }
 }

@@ -10,5 +10,5 @@ namespace FFMpegDll;
 public interface IVideoDecoder : IDisposable
 {
     void SeekTo(TimeSpan position);
-    bool TryDecodeNextFrame(out AVFrame ff_frame);
+    bool TryDecodeNextFrame(out AVFrame ff_frame, out bool endOfVideo);
 }

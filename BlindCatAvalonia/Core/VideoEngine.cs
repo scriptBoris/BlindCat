@@ -1,50 +1,63 @@
-﻿using FFMpegProcessor.Models;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
 using Avalonia.Platform;
-using System.Diagnostics;
+using Avalonia.Threading;
 using FFmpeg.AutoGen.Abstractions;
-using System.Runtime.InteropServices;
-using System.Collections.Generic;
-using IntSize = System.Drawing.Size;
-using System.Runtime.CompilerServices;
-using System.IO;
 using FFMpegDll;
+using FFMpegProcessor.Models;
+using IntSize = System.Drawing.Size;
 
 namespace BlindCatAvalonia.Core;
 
 public class VideoEngine : IDisposable
 {
-    private readonly int _totalFrames;
+    // private readonly int _totalFrames;
     private readonly TimeSpan _startingTime;
-    private readonly TimeSpan _pauseForFrameRate;
-    private readonly TimeSpan _duration;
+    // private readonly TimeSpan _pauseForFrameRate;
+    // private readonly TimeSpan _duration;
     private readonly VideoMetadata _meta;
-    private readonly ConcurrentQueue<IFrameData> _frameBuffer = new();
-    private readonly IntSize? _resize;
+    // private readonly IntSize? _resize;
     private System.Timers.Timer _timerFramerate;
     private IVideoDecoder _videoDecoder;
     private Thread _engineThread;
     private bool _isDisposed;
     private bool _isEngineRunning;
     private bool _isEndVideo;
-    private int _framesCounter = 0;
+    private int _framesCounter;
     private int _dropFramesCount;
 
     private readonly object _locker = new();
     private readonly object _timerLocker = new();
+    
+    /// <summary>
+    /// Фреймы готовые для отображения
+    /// </summary>
+    private readonly ConcurrentQueue<IFrameData> _frameBuffer = new();
+    
+    /// <summary>
+    /// Фреймы которые можно использовать для декодирования 
+    /// </summary>
     private readonly ConcurrentBag<FrameDataNative> _recyrclePool = [];
+    
+    /// <summary>
+    /// Все фреймы которые зарегестированные в данном видео-движке
+    /// </summary>
     private readonly List<FrameDataNative> _totalPool = [];
 
-    public event EventHandler<IFrameData>? MayFetchFrame;
+    public event EventHandler<IFrameData>? FrameReady;
+    public event EventHandler? EndOfVideo;
 
     public VideoEngine(object play,
         TimeSpan startFrom,
-        VideoMetadata meta,
-        string pathToFFmpegExe)
+        VideoMetadata meta)
     {
         if (meta.AvgFramerate == 0)
             throw new InvalidOperationException("Invalid video meta data");
@@ -67,9 +80,9 @@ public class VideoEngine : IDisposable
                 throw new NotImplementedException();
         };
 
-        _duration = TimeSpan.FromSeconds(meta.Duration);
-        _pauseForFrameRate = TimeSpan.FromSeconds(1.0 / meta.AvgFramerate);
-        _totalFrames = meta.PredictedFrameCount;
+        // _duration = TimeSpan.FromSeconds(meta.Duration);
+        var fr = TimeSpan.FromSeconds(1.0 / meta.AvgFramerate);
+        // _totalFrames = meta.PredictedFrameCount;
 
         _startingTime = startFrom;
         _engineThread = new(Engine);
@@ -78,11 +91,14 @@ public class VideoEngine : IDisposable
         _timerFramerate.Elapsed += OnTimerFramerate;
         _timerFramerate.Enabled = true;
         _timerFramerate.AutoReset = true;
-        _timerFramerate.Interval = _pauseForFrameRate.TotalMilliseconds;
+        _timerFramerate.Interval = fr.TotalMilliseconds;
 
         // make frames 1, 2
         var f1 = MakeHard(_meta, "1");
         var f2 = MakeHard(_meta, "2");
+        
+        _totalPool.Add(f1);
+        _totalPool.Add(f2);
         _recyrclePool.Add(f1);
         _recyrclePool.Add(f2);
 
@@ -97,7 +113,7 @@ public class VideoEngine : IDisposable
 
                 int neww = (int)_meta.Width;
                 int newh = (int)((float)_meta.Height * coofV);
-                _resize = new IntSize(neww, newh);
+                // _resize = new IntSize(neww, newh);
             }
         }
         catch (Exception)
@@ -118,7 +134,7 @@ public class VideoEngine : IDisposable
         //videoReader.TryDecodeNextFrame(out var frame);
         //return videoReader.Load(Position.TotalSeconds, width, height, cancel);
 
-        bool successFrame = _videoDecoder.TryDecodeNextFrame(out var ff_frame);
+        bool successFrame = _videoDecoder.TryDecodeNextFrame(out var ff_frame, out bool endOfVideo);
         if (successFrame)
         {
             var frameData = FetchOrMakeFrame(ff_frame);
@@ -135,6 +151,7 @@ public class VideoEngine : IDisposable
     public Task SeekTo(TimeSpan position, CancellationToken cancel)
     {
         _videoDecoder.SeekTo(position);
+        _isEndVideo = false;
         return Task.CompletedTask;
     }
 
@@ -157,16 +174,20 @@ public class VideoEngine : IDisposable
     {
         lock (_timerLocker)
         {
-            if (_isDisposed)
+            if (_isDisposed || !_timerFramerate.Enabled)
                 return;
-
+            
             if (_frameBuffer.TryDequeue(out var frame))
             {
-                MayFetchFrame?.Invoke(this, frame);
+                FrameReady?.Invoke(this, frame);
             }
             else if (_isEndVideo)
             {
                 _timerFramerate.Stop();
+                Dispatcher.UIThread.Post(() =>
+                {
+                    EndOfVideo?.Invoke(this, EventArgs.Empty);
+                });
             }
             else
             {
@@ -179,7 +200,7 @@ public class VideoEngine : IDisposable
     {
         while (true)
         {
-            if (_frameBuffer.Count >= 2)
+            if (_frameBuffer.Count >= 2 || _isEndVideo)
             {
                 Thread.Sleep(1);
                 continue;
@@ -190,17 +211,23 @@ public class VideoEngine : IDisposable
 
             var sw = Stopwatch.StartNew();
             var dec = Stopwatch.StartNew();
-            bool successFrame = _videoDecoder.TryDecodeNextFrame(out var ff_frame);
+            bool successFrame = _videoDecoder.TryDecodeNextFrame(out var ff_frame, out bool endOfVideo);
             dec.StopAndCout("TryDecodeNextFrame");
 
             if (_isDisposed)
                 break;
 
-            if (!successFrame)
+            if (endOfVideo)
             {
                 _isEndVideo = true;
-                return;
+                continue;
             }
+            
+            if (!successFrame)
+            {
+                continue;
+            }
+
 
             if (_isDisposed)
                 break;
@@ -247,6 +274,7 @@ public class VideoEngine : IDisposable
                 return null;
 
             free = MakeHard(_meta, $"{_totalPool.Count + 1}");
+            _totalPool.Add(free);
         }
 
         nint pointerFFMpegBitmap = (IntPtr)ffframe.data[0];
@@ -282,8 +310,6 @@ public class VideoEngine : IDisposable
         {
             Debug.WriteLine("Buffer pointer is not aligned as expected");
         }
-
-        _totalPool.Add(free);
 
         Debug.WriteLine($"Successed allocated new frame [{dbgname}]");
         return free;
