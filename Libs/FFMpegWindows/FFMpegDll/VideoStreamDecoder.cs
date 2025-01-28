@@ -23,7 +23,8 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
     private readonly VideoFrameConverter? _converter;
     private readonly object _locker = new();
     private readonly GCHandle _sourceStreamHandle;
-    private readonly int _streamIndex;
+    private readonly int _streamVideoIndex;
+    private readonly int _streamAudioIndex;
     private readonly Stream _streamSRC;
     private readonly AVRational _stream_time_base;
     private readonly void* _sourceStreamPointer;
@@ -48,14 +49,19 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
         MakeContexts();
         ffmpeg.avformat_find_stream_info(_pFormatContext, null).ThrowExceptionIfError();
 
-        // Найти лучший поток
+        // Finding best video stream
         AVCodec* codec = null;
-        _streamIndex = ffmpeg
+        _streamVideoIndex = ffmpeg
             .av_find_best_stream(_pFormatContext, AVMediaType.AVMEDIA_TYPE_VIDEO, -1, -1, &codec, 0)
             .ThrowExceptionIfError();
+        
+        // Finding best audio stream
+        AVCodec* acodec = null;
+        _streamAudioIndex = ffmpeg
+            .av_find_best_stream(_pFormatContext, AVMediaType.AVMEDIA_TYPE_AUDIO, -1, -1, &acodec, 0);
 
         _pCodecContext = ffmpeg.avcodec_alloc_context3(codec);
-        ffmpeg.avcodec_parameters_to_context(_pCodecContext, _pFormatContext->streams[_streamIndex]->codecpar)
+        ffmpeg.avcodec_parameters_to_context(_pCodecContext, _pFormatContext->streams[_streamVideoIndex]->codecpar)
             .ThrowExceptionIfError();
 
         if (acceleration != AVHWDeviceType.AV_HWDEVICE_TYPE_NONE)
@@ -83,7 +89,7 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
         _pFrame = ffmpeg.av_frame_alloc();
         _receivedFrame = ffmpeg.av_frame_alloc();
         _pPacket = ffmpeg.av_packet_alloc();
-        _stream_time_base = _pFormatContext->streams[_streamIndex]->time_base;
+        _stream_time_base = _pFormatContext->streams[_streamVideoIndex]->time_base;
     }
 
     public string CodecName { get; }
@@ -180,18 +186,6 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
             if (_disposed)
                 throw new ObjectDisposedException(GetType().FullName);
 
-            if (position < FrameTime)
-            {
-                // var pFormatContext = _pFormatContext;
-                // ffmpeg.avformat_close_input(&pFormatContext);
-                //
-                // var pAvioContext = _pAvioContext;
-                // ffmpeg.avio_context_free(&pAvioContext);
-
-                // _streamSRC.Position = 0;
-                // MakeContexts();
-            }
-
             var timestamp = (long)(position.TotalSeconds * ffmpeg.AV_TIME_BASE);
             ffmpeg.av_seek_frame(_pFormatContext, -1, timestamp, ffmpeg.AVSEEK_FLAG_BACKWARD)
                 .ThrowExceptionIfError();
@@ -216,17 +210,18 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
                     {
                         ffmpeg.av_packet_unref(_pPacket);
                         error = ffmpeg.av_read_frame(_pFormatContext, _pPacket);
-
+                    
                         if (error == ffmpeg.AVERROR_EOF)
                         {
                             frame = *_pFrame;
                             endOfVideo = true;
                             return false;
                         }
-
+                    
                         error.ThrowExceptionIfError();
-                    } while (_pPacket->stream_index != _streamIndex);
-
+                    } 
+                    while (_pPacket->stream_index != _streamVideoIndex);
+                    
                     ffmpeg.avcodec_send_packet(_pCodecContext, _pPacket).ThrowExceptionIfError();
                 }
                 finally
@@ -235,7 +230,8 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
                 }
 
                 error = ffmpeg.avcodec_receive_frame(_pCodecContext, _pFrame);
-            } while (error == ffmpeg.AVERROR(ffmpeg.EAGAIN));
+            } 
+            while (error == ffmpeg.AVERROR(ffmpeg.EAGAIN));
 
             error.ThrowExceptionIfError();
 

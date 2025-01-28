@@ -303,10 +303,10 @@ public class VideoPlayerSkia : Control, IMediaPlayer
         };
 
         // new instances
-        //if (cachedAudioMeta != null && cachedAudioMeta.Streams.Length > 0 && cachedAudioMeta.Streams.Any(x => x.IsAudio))
-        //{
-        //    audioEngine = new AudioEngine(audioSource, startFrom, cachedAudioMeta!, _audioService, _ffmpeg.PathToFFmpegExe);
-        //}
+        if (cachedAudioMeta != null && cachedAudioMeta.Streams.Length > 0 && cachedAudioMeta.Streams.Any(x => x.IsAudio))
+        {
+            audioEngine = new AudioEngine(audioSource, startFrom, cachedAudioMeta!, _audioService, _ffmpeg.PathToFFmpegExe);
+        }
 
         if (cachedVideoMeta != null && cachedVideoMeta.Streams.Length > 0 && cachedVideoMeta.Streams.Any(x => x.IsVideo))
         {
@@ -526,16 +526,10 @@ public class VideoPlayerSkia : Control, IMediaPlayer
 
         double durationAsSeconds = Duration.TotalSeconds * seekProgress;
         var time = TimeSpan.FromSeconds(durationAsSeconds);
-
-        if (videoEngine.CanSeeking)
-        {
-            CalculateProgress(time);
-            await videoEngine.SeekTo(time, cancellation);
-        }
-        else
-        {
-            await UseEngine(currentSource, time, false, cancellation);
-        }
+        
+        CalculateProgress(time);
+        await videoEngine.SeekTo(time, cancellation);
+        audioEngine?.SeekTo(time);
     }
 
     public void SetPercentPosition(double imagePosPercentX, double imagePosPercentY)
