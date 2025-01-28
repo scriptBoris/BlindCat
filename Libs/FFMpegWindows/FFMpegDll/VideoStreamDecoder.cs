@@ -14,39 +14,55 @@ namespace FFMpegDll;
 
 public sealed unsafe class VideoStreamDecoder : IVideoDecoder
 {
-    private AVFormatContext* _pFormatContext;
-    private AVIOContext* _pAvioContext;
+    private const int BUFFER_SIZE = 8192;
+    private readonly AVFormatContext* _pFormatContext;
+    private readonly AVIOContext* _pAvioContext;
     private readonly AVCodecContext* _pCodecContext;
     private readonly AVFrame* _pFrame;
     private readonly AVFrame* _receivedFrame;
     private readonly AVPacket* _pPacket;
     private readonly VideoFrameConverter? _converter;
     private readonly object _locker = new();
-    private readonly GCHandle _sourceStreamHandle;
     private readonly int _streamVideoIndex;
-    private readonly int _streamAudioIndex;
-    private readonly Stream _streamSRC;
     private readonly AVRational _stream_time_base;
-    private readonly void* _sourceStreamPointer;
-    private readonly avio_alloc_context_read_packet_func _callbackRead;
-    private readonly avio_alloc_context_seek_func _callbackSeek;
+    
     private bool _disposed;
-    private const int BUFFER_SIZE = 8192;
+    private GCHandle _sourceStreamHandle;
 
     public VideoStreamDecoder(Stream source, AVHWDeviceType acceleration)
     {
-        _streamSRC = source;
         _sourceStreamHandle = GCHandle.Alloc(new StreamWrapper(source), GCHandleType.Pinned);
 
-        _sourceStreamPointer = (void*)_sourceStreamHandle.AddrOfPinnedObject();
+        var _sourceStreamPointer = (void*)_sourceStreamHandle.AddrOfPinnedObject();
 
         nint readCallbackPtr = Marshal.GetFunctionPointerForDelegate(ReadCallback);
-        _callbackRead = new avio_alloc_context_read_packet_func { Pointer = readCallbackPtr };
+        var _callbackRead = new avio_alloc_context_read_packet_func { Pointer = readCallbackPtr };
 
         nint seekCallbackPtr = Marshal.GetFunctionPointerForDelegate(SeekCallback);
-        _callbackSeek = new avio_alloc_context_seek_func { Pointer = seekCallbackPtr };
+        var _callbackSeek = new avio_alloc_context_seek_func { Pointer = seekCallbackPtr };
 
-        MakeContexts();
+        // may be it is buffer will FREE as automatically when parent members was FREE?
+        var _bufferPointer = (byte*)ffmpeg.av_malloc(BUFFER_SIZE);
+        _pFormatContext = ffmpeg.avformat_alloc_context();
+        _pAvioContext = ffmpeg.avio_alloc_context(
+            buffer: _bufferPointer,
+            buffer_size: BUFFER_SIZE,
+            write_flag: 0,
+            opaque: _sourceStreamPointer,
+            read_packet: _callbackRead,
+            write_packet: null,
+            seek: _callbackSeek
+        );
+
+        if (_pAvioContext == null)
+            throw new InvalidOperationException("Не удалось создать AVIOContext.");
+
+        _pFormatContext->pb = _pAvioContext;
+
+        // Открытие входного формата
+        var pFormatContext2 = _pFormatContext;
+        ffmpeg.avformat_open_input(&pFormatContext2, null, null, null).ThrowExceptionIfError();
+        
         ffmpeg.avformat_find_stream_info(_pFormatContext, null).ThrowExceptionIfError();
 
         // Finding best video stream
@@ -55,11 +71,6 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
             .av_find_best_stream(_pFormatContext, AVMediaType.AVMEDIA_TYPE_VIDEO, -1, -1, &codec, 0)
             .ThrowExceptionIfError();
         
-        // Finding best audio stream
-        AVCodec* acodec = null;
-        _streamAudioIndex = ffmpeg
-            .av_find_best_stream(_pFormatContext, AVMediaType.AVMEDIA_TYPE_AUDIO, -1, -1, &acodec, 0);
-
         _pCodecContext = ffmpeg.avcodec_alloc_context3(codec);
         ffmpeg.avcodec_parameters_to_context(_pCodecContext, _pFormatContext->streams[_streamVideoIndex]->codecpar)
             .ThrowExceptionIfError();
@@ -121,7 +132,6 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
         var stream_pointer = (StreamWrapper*)opaque;
         var streamWrapper = *stream_pointer;
         var stream = streamWrapper.ResolveStream();
-        SeekOrigin origin;
         switch (whence)
         {
             case 0: // Аналог SEEK_SET
@@ -140,43 +150,6 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
         }
         
         return stream.Position;
-    }
-
-    private void MakeContexts()
-    {
-        if (_pAvioContext != null)
-        {
-            var avioContext = _pAvioContext;
-            ffmpeg.avio_context_free(&avioContext);
-        }
-
-        if (_pFormatContext != null)
-        {
-            var pFormatContext = _pFormatContext;
-            ffmpeg.avformat_close_input(&pFormatContext);
-        }
-
-        var _bufferPointer = (byte*)ffmpeg.av_malloc(BUFFER_SIZE);
-
-        _pFormatContext = ffmpeg.avformat_alloc_context();
-        _pAvioContext = ffmpeg.avio_alloc_context(
-            buffer: _bufferPointer,
-            buffer_size: BUFFER_SIZE,
-            write_flag: 0,
-            opaque: _sourceStreamPointer,
-            read_packet: _callbackRead,
-            write_packet: null,
-            seek: _callbackSeek
-        );
-
-        if (_pAvioContext == null)
-            throw new InvalidOperationException("Не удалось создать AVIOContext.");
-
-        _pFormatContext->pb = _pAvioContext;
-
-        // Открытие входного формата
-        var pFormatContext2 = _pFormatContext;
-        ffmpeg.avformat_open_input(&pFormatContext2, null, null, null).ThrowExceptionIfError();
     }
 
     public void SeekTo(TimeSpan position)
@@ -277,11 +250,8 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
 
             _disposed = true;
 
-            if (_pAvioContext != null)
-            {
-                var avioContext = _pAvioContext;
-                ffmpeg.avio_context_free(&avioContext);
-            }
+            var avioContext = _pAvioContext;
+            ffmpeg.avio_context_free(&avioContext);
 
             var pFrame = _pFrame;
             ffmpeg.av_frame_free(&pFrame);
@@ -297,6 +267,11 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
 
             var pFormatContext = _pFormatContext;
             ffmpeg.avformat_close_input(&pFormatContext);
+
+            if (_converter != null)
+            {
+                _converter.Dispose();
+            }
 
             if (_sourceStreamHandle.IsAllocated)
                 _sourceStreamHandle.Free();

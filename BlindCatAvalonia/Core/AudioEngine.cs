@@ -89,23 +89,23 @@ public class AudioEngine : IDisposable
         {
             if (isDisposed)
                 return;
-            
+        
             if (!_isPlaying || !_stream.CanPush)
             {
                 Thread.Sleep(2);
                 continue;
             }
-            
+        
             bool success = _audioReader.TryDecodeNextSample(out var frameSamples);
             if (!success)
             {
                 Thread.Sleep(2);   
                 continue;
             }
-            
+        
             if (isDisposed)
                 return;
-            
+        
             _stream.Push(frameSamples);
         }
     }

@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Timers;
 using FFmpeg.AutoGen.Abstractions;
 using FFMpegDll.Internal;
 
@@ -16,7 +17,6 @@ public unsafe class AudioStreamDecoder : IAudioDecoder
     private readonly SwrContext* _pSwrContext;
     private readonly object _locker = new();
     private readonly int _streamAudioIndex;
-    private readonly byte* _bufferPointer;
     private bool _disposed;
 
     private void* _convertBuffer;
@@ -34,7 +34,8 @@ public unsafe class AudioStreamDecoder : IAudioDecoder
         var _callbackSeek = new avio_alloc_context_seek_func { Pointer = seekCallbackPtr };
         _pFormatContext = ffmpeg.avformat_alloc_context();
         
-        _bufferPointer = (byte*)ffmpeg.av_malloc(BUFFER_SIZE);
+        // may be it is buffer will FREE as automatically when parent members was FREE?
+        var _bufferPointer = (byte*)ffmpeg.av_malloc(BUFFER_SIZE);
         _pAvioContext = ffmpeg.avio_alloc_context(
             buffer: _bufferPointer,
             buffer_size: BUFFER_SIZE,
@@ -231,7 +232,6 @@ public unsafe class AudioStreamDecoder : IAudioDecoder
                     
                         if (error == ffmpeg.AVERROR_EOF)
                         {
-                            // var frame = *_pFrame;
                             frameSamples = Array.Empty<byte>();
                             return false;
                         }
@@ -298,7 +298,7 @@ public unsafe class AudioStreamDecoder : IAudioDecoder
                 return;
 
             _disposed = true;
-
+            
             var avioContext = _pAvioContext;
             ffmpeg.avio_context_free(&avioContext);
 
@@ -314,7 +314,6 @@ public unsafe class AudioStreamDecoder : IAudioDecoder
             var pFormatContext = _pFormatContext;
             ffmpeg.avformat_close_input(&pFormatContext);
             
-            ffmpeg.av_free(_bufferPointer);
             
             if (_pSwrContext != null)
             {
