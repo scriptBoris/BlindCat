@@ -51,7 +51,7 @@ class Program
             .AddScoped<ICrypto, DesktopCrypto>()
             .AddScoped<IConfig, FileConfig>()
             .AddScoped<IFFMpegService, FFMpegProcessorService>()
-            .AddScoped<IAudioService, WindowsAudio>();
+            .AddScoped<IAudioService, LinuxAudio>();
     }
 
     private static void ServicesDI_Designer(string[] args)
@@ -63,6 +63,6 @@ class Program
             .AddScoped<ICrypto, DesktopCrypto>()
             .AddScoped<IConfig, FileConfig>()
             .AddScoped<IFFMpegService, FFMpegProcessorService>()
-            .AddScoped<IAudioService, WindowsAudio>();
+            .AddScoped<IAudioService, LinuxAudio>();
     }
 }

@@ -15,6 +15,8 @@ namespace BlindCatAvalonia.Linux.Implementations;
 
 public class DesktopPlatform : PlatformAvaloniaDesktop
 {
+    public override IClipboard Clipboard { get; } = new LinuxClipboardService();
+
     public override AppResponse ShowFileOnExplorer(string filePath)
     {
         if (!File.Exists(filePath))
@@ -28,5 +30,10 @@ public class DesktopPlatform : PlatformAvaloniaDesktop
             UseShellExecute = true
         });
         return AppResponse.OK;
+    }
+
+    public override Task<string?> SaveTo(string? defaultFileName, string? defaultDirectory)
+    {
+        throw new NotImplementedException();
     }
 }

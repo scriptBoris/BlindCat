@@ -76,6 +76,9 @@ public unsafe class AudioStreamDecoder : IAudioDecoder
         OriginSampleFormat = (AVSampleFormat)param->format;
         Channels = param->ch_layout.nb_channels;
         SampleRate = param->sample_rate;
+        SamplesPerChannel = _pCodecContext->frame_size > 0 
+            ? _pCodecContext->frame_size // Используем frame_size, если он определён
+            : 4096;                      // Если frame_size неизвестен, выбираем безопасное значение с запасом
         DataSize = ffmpeg.av_samples_get_buffer_size(
             null,
             Channels,
@@ -83,9 +86,6 @@ public unsafe class AudioStreamDecoder : IAudioDecoder
             OriginSampleFormat,
             1
         );
-        SamplesPerChannel = _pCodecContext->frame_size > 0 
-            ? _pCodecContext->frame_size // Используем frame_size, если он определён
-            : 4096;                      // Если frame_size неизвестен, выбираем безопасное значение с запасом
         
         switch (OriginSampleFormat)
         {

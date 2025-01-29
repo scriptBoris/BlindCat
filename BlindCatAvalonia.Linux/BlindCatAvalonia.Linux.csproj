@@ -7,12 +7,18 @@
     <Nullable>enable</Nullable>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <StartupObject>BlindCatAvalonia.Linux.Program</StartupObject>
-    <PublishAot>True</PublishAot>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" Version="11.2.0" />
-    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="ppy.SDL2-CS" Version="1.0.82" />
+    <PackageReference Include="TextCopy" Version="6.2.1" />
   </ItemGroup>
 
   <ItemGroup>
