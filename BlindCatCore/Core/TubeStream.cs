@@ -107,21 +107,11 @@ public class TubeStream : Stream
         }
     }
 
-    public override int Read(Span<byte> buffer)
-    {
-        return base.Read(buffer);
-    }
-
     public override int ReadByte()
     {
         int dat = _source.ReadByte();
         _position += 1;
         return dat;
-    }
-
-    public override IAsyncResult BeginRead(byte[] buffer, int offset, int count, AsyncCallback? callback, object? state)
-    {
-        return base.BeginRead(buffer, offset, count, callback, state);
     }
 
     public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
@@ -131,21 +121,11 @@ public class TubeStream : Stream
         return Task.FromResult(ln);
     }
 
-    public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
-    {
-        return base.ReadAsync(buffer, cancellationToken);
-    }
-
-    public override int EndRead(IAsyncResult asyncResult)
-    {
-        return base.EndRead(asyncResult);
-    }
-
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
-            _source?.Dispose();
+            _source.Dispose();
         }
         base.Dispose(disposing);
     }
