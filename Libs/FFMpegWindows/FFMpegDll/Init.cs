@@ -11,15 +11,22 @@ namespace FFMpegDll;
 
 public static class Init
 {
-    private static bool initialized = false;
+    private static object _lock = new();
+    private static bool _initialized = false;
 
     public static void InitializeFFMpeg()
     {
-        if (!initialized)
+        if (_initialized)
+            return;
+        
+        lock (_lock)
         {
-            initialized = true;
-            RegisterFFmpegBinaries();
-            DynamicallyLoadedBindings.Initialize();
+            if (!_initialized)
+            {
+                _initialized = true;
+                RegisterFFmpegBinaries();
+                DynamicallyLoadedBindings.Initialize();
+            }
         }
     }
 
