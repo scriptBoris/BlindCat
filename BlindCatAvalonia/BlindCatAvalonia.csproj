@@ -34,7 +34,7 @@
   <ItemGroup>
     <ProjectReference Include="..\BlindCatCore\BlindCatCore.csproj" />
     <ProjectReference Include="..\BlindCatData\BlindCatData.csproj" />
-    <ProjectReference Include="..\Libs\FFMpegWindows\FFMpegDll\FFMpegDll.csproj" />
+    <ProjectReference Include="..\Libs\FFMpegLib\FFMpegDll\FFMpegDll.csproj" />
     <ProjectReference Include="..\Libs\QTFastStart\QTFastStart.csproj" />
   </ItemGroup>
 

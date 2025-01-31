@@ -5,7 +5,6 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using BlindCatAvalonia.Core;
 using BlindCatAvalonia.Services;
-using BlindCatAvalonia.Tools;
 using BlindCatAvalonia.Views;
 using BlindCatAvalonia.Views.Panels;
 using BlindCatAvalonia.Views.Popups;
@@ -14,11 +13,9 @@ using BlindCatCore.PopupViewModels;
 using BlindCatCore.Services;
 using BlindCatCore.ViewModels;
 using BlindCatCore.ViewModels.Panels;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Diagnostics;
-using System.Reflection.Metadata;
 
 namespace BlindCatAvalonia;
 
@@ -47,6 +44,8 @@ public partial class App : Application
             .AddScoped<IDataBaseService, DataBaseService>()
             .AddScoped<IDeclaratives, Declaratives>()
             .AddScoped<IMetaDataAnalyzer, MetaDataAnalyzer>()
+            .AddScoped<ICrypto, DesktopCrypto>()
+            .AddScoped<IFFMpegService, FFMpegServiceDesktop>()
             .AddInternalServices()
             .AddLogging();
 

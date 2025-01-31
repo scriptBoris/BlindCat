@@ -27,15 +27,15 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{71E485BD-E
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "FFMpegLib", "FFMpegLib", "{404E7B9B-074F-4F95-85AE-4640629EC06D}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FFmpeg.AutoGen.Abstractions", "Libs\FFMpegWindows\FFmpeg.AutoGen.Abstractions\FFmpeg.AutoGen.Abstractions.csproj", "{1E47CFC9-83EA-44B9-98FB-0FCFB106A571}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FFmpeg.AutoGen.Abstractions", "Libs\FFMpegLib\FFmpeg.AutoGen.Abstractions\FFmpeg.AutoGen.Abstractions.csproj", "{1E47CFC9-83EA-44B9-98FB-0FCFB106A571}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FFmpeg.AutoGen.Bindings.DynamicallyLinked", "Libs\FFMpegWindows\FFmpeg.AutoGen.Bindings.DynamicallyLinked\FFmpeg.AutoGen.Bindings.DynamicallyLinked.csproj", "{F060AF52-BFC4-41C8-AC72-825BC4ABFBCC}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FFmpeg.AutoGen.Bindings.DynamicallyLinked", "Libs\FFMpegLib\FFmpeg.AutoGen.Bindings.DynamicallyLinked\FFmpeg.AutoGen.Bindings.DynamicallyLinked.csproj", "{F060AF52-BFC4-41C8-AC72-825BC4ABFBCC}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FFmpeg.AutoGen.Bindings.DynamicallyLoaded", "Libs\FFMpegWindows\FFmpeg.AutoGen.Bindings.DynamicallyLoaded\FFmpeg.AutoGen.Bindings.DynamicallyLoaded.csproj", "{BE0C875E-4B5E-48D8-B042-0AD9C26D6543}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FFmpeg.AutoGen.Bindings.DynamicallyLoaded", "Libs\FFMpegLib\FFmpeg.AutoGen.Bindings.DynamicallyLoaded\FFmpeg.AutoGen.Bindings.DynamicallyLoaded.csproj", "{BE0C875E-4B5E-48D8-B042-0AD9C26D6543}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FFmpeg.AutoGen.Bindings.StaticallyLinked", "Libs\FFMpegWindows\FFmpeg.AutoGen.Bindings.StaticallyLinked\FFmpeg.AutoGen.Bindings.StaticallyLinked.csproj", "{3DCA3F40-77BF-4CD3-A022-84C6F24D8BEA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FFmpeg.AutoGen.Bindings.StaticallyLinked", "Libs\FFMpegLib\FFmpeg.AutoGen.Bindings.StaticallyLinked\FFmpeg.AutoGen.Bindings.StaticallyLinked.csproj", "{3DCA3F40-77BF-4CD3-A022-84C6F24D8BEA}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FFMpegDll", "Libs\FFMpegWindows\FFMpegDll\FFMpegDll.csproj", "{279DA1F1-F707-411E-BEAF-3A487AB18498}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FFMpegDll", "Libs\FFMpegLib\FFMpegDll\FFMpegDll.csproj", "{279DA1F1-F707-411E-BEAF-3A487AB18498}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlindCatAvalonia.Linux", "BlindCatAvalonia.Linux\BlindCatAvalonia.Linux.csproj", "{7317B080-823B-47D7-B034-5A392EB12A7E}"
 EndProject
