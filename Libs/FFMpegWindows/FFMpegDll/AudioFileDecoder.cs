@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 using FFmpeg.AutoGen.Abstractions;
 using FFMpegDll.Internal;
+using FFMpegDll.Models;
 
 namespace FFMpegDll;
 
@@ -19,7 +20,7 @@ public unsafe class AudioFileDecoder : IAudioDecoder
     private bool _disposed;
     private void* _convertBuffer;
 
-    public AudioFileDecoder(string filePath)
+    public AudioFileDecoder(string filePath, FileCencArgs? args = null)
     {
         _pFormatContext = ffmpeg.avformat_alloc_context();
         var pFormatContext = _pFormatContext;
@@ -213,6 +214,15 @@ public unsafe class AudioFileDecoder : IAudioDecoder
             var span = new Span<byte>(bptr, DataSize);
             return span;
         }
+    }
+
+    public async Task<AudioMetadata> LoadMetadataAsync(CancellationToken cancel)
+    {
+        var meta = new AudioMetadata
+        {
+
+        };
+        return meta;
     }
 
     public void Dispose()

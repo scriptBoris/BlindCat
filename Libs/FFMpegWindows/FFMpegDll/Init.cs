@@ -63,7 +63,7 @@ public static class Init
         }
         else
         {
-            throw new InvalidDataException("No match ffmpeg dll files");
+            throw new InvalidDataException($"No match ffmpeg dll files by path: \"{probe}\"");
         }
     }
 }

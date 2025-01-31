@@ -50,7 +50,7 @@ class Program
             .AddScoped<INavigationService, DesktopNavigation>()
             .AddScoped<ICrypto, DesktopCrypto>()
             .AddScoped<IConfig, FileConfig>()
-            .AddScoped<IFFMpegService, FFMpegProcessorService>()
+            .AddScoped<IFFMpegService, FFMpegServiceDesktop>()
             .AddScoped<IAudioService, LinuxAudio>();
     }
 
@@ -62,7 +62,7 @@ class Program
             .AddScoped<INavigationService, DesignNavigationService>()
             .AddScoped<ICrypto, DesktopCrypto>()
             .AddScoped<IConfig, FileConfig>()
-            .AddScoped<IFFMpegService, FFMpegProcessorService>()
+            .AddScoped<IFFMpegService, FFMpegServiceDesktop>()
             .AddScoped<IAudioService, LinuxAudio>();
     }
 }

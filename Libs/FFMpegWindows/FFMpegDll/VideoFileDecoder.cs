@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using FFmpeg.AutoGen.Abstractions;
 using FFMpegDll;
 using FFMpegDll.Internal;
+using FFMpegDll.Models;
 
 namespace FFMpegDll;
 
@@ -22,7 +23,7 @@ public sealed unsafe class VideoFileDecoder : IVideoDecoder, IDisposable
     private bool _disposed;
 
     //public VideoFileDecoder(string filePath, AVHWDeviceType HWDeviceType = AVHWDeviceType.AV_HWDEVICE_TYPE_NONE)
-    public VideoFileDecoder(string filePath, AVHWDeviceType HWDeviceType = AVHWDeviceType.AV_HWDEVICE_TYPE_DXVA2)
+    public VideoFileDecoder(string filePath, AVHWDeviceType HWDeviceType = AVHWDeviceType.AV_HWDEVICE_TYPE_DXVA2, FileCencArgs? args = null)
     {
         _pFormatContext = ffmpeg.avformat_alloc_context();
         _receivedFrame = ffmpeg.av_frame_alloc();
@@ -78,7 +79,7 @@ public sealed unsafe class VideoFileDecoder : IVideoDecoder, IDisposable
         ffmpeg.av_seek_frame(_pFormatContext, -1, timestamp, ffmpeg.AVSEEK_FLAG_BACKWARD);
     }
 
-    public bool TryDecodeNextFrame(out AVFrame frame, out bool endOfVideo)
+    public FrameDecodeResult TryDecodeNextFrame()
     {
         lock (_locker)
         {
@@ -101,9 +102,14 @@ public sealed unsafe class VideoFileDecoder : IVideoDecoder, IDisposable
                         if (error == ffmpeg.AVERROR_EOF)
                         {
                             //frame = *_pFrame;
-                            frame = ResolveFrame(*_pFrame);
-                            endOfVideo = true;
-                            return false;
+                            // frame = ResolveFrame(*_pFrame);
+                            // endOfVideo = true;
+                            return new FrameDecodeResult
+                            {
+                                FrameBitmapRGBA8888 = null,
+                                IsSuccessed = false,
+                                IsEndOfStream = true,
+                            };
                         }
 
                         error.ThrowExceptionIfError();
@@ -132,10 +138,20 @@ public sealed unsafe class VideoFileDecoder : IVideoDecoder, IDisposable
                 tframe = _pFrame;
             }
 
-            frame = ResolveFrame(*tframe);
-            endOfVideo = false;
-            return true;
+            byte* frame_data = ResolveFrame(tframe);
+            return new FrameDecodeResult
+            {
+                FrameBitmapRGBA8888 = frame_data,
+                IsSuccessed = true,
+                IsEndOfStream = false,
+            };
         }
+    }
+
+    public async Task<VideoMetadata> LoadMetadataAsync(CancellationToken cancel)
+    {
+        var meta = new VideoMetadata();
+        return meta;
     }
 
     private AVFrame ResolveFrame(AVFrame frame)
@@ -150,6 +166,18 @@ public sealed unsafe class VideoFileDecoder : IVideoDecoder, IDisposable
         }
     }
 
+    private byte* ResolveFrame(AVFrame* frame)
+    {
+        if (_converter != null)
+        {
+            return _converter.Convert(frame);
+        }
+        else
+        {
+            return frame->data[0];
+        }
+    }
+    
     public IReadOnlyDictionary<string, string> GetContextInfo()
     {
         AVDictionaryEntry* tag = null;

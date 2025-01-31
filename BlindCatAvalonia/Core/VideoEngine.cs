@@ -10,9 +10,11 @@ using System.Threading.Tasks;
 using System.Timers;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using BlindCatCore.Models;
+using BlindCatCore.Models.Media;
 using FFmpeg.AutoGen.Abstractions;
 using FFMpegDll;
-using FFMpegProcessor.Models;
+using FFMpegDll.Models;
 using IntSize = System.Drawing.Size;
 
 namespace BlindCatAvalonia.Core;
@@ -124,7 +126,7 @@ public class VideoEngine : IDisposable
     public AVHWDeviceType HWDevice { get; private set; }
     public bool CanSeeking => true;
 
-    public Task Init(CancellationToken cancel)
+    public unsafe Task Init(CancellationToken cancel)
     {
         if (_startingTime.Ticks > 0)
             return SeekTo(_startingTime, cancel);
@@ -134,10 +136,10 @@ public class VideoEngine : IDisposable
         //videoReader.TryDecodeNextFrame(out var frame);
         //return videoReader.Load(Position.TotalSeconds, width, height, cancel);
 
-        bool successFrame = _videoDecoder.TryDecodeNextFrame(out var ff_frame, out bool endOfVideo);
-        if (successFrame)
+        var decodeRes = _videoDecoder.TryDecodeNextFrame();
+        if (decodeRes.IsSuccessed)
         {
-            var frameData = FetchOrMakeFrame(ff_frame);
+            var frameData = FetchOrMakeFrame(decodeRes.FrameBitmapRGBA8888);
             if (frameData != null)
             {
                 frameData.Id = ++_framesCounter;
@@ -196,7 +198,7 @@ public class VideoEngine : IDisposable
         }
     }
 
-    private void Engine()
+    private unsafe void Engine()
     {
         while (true)
         {
@@ -211,19 +213,19 @@ public class VideoEngine : IDisposable
 
             var sw = Stopwatch.StartNew();
             var dec = Stopwatch.StartNew();
-            bool successFrame = _videoDecoder.TryDecodeNextFrame(out var ff_frame, out bool endOfVideo);
+            var decodeResult = _videoDecoder.TryDecodeNextFrame();
             dec.StopAndCout("TryDecodeNextFrame");
 
             if (_isDisposed)
                 break;
 
-            if (endOfVideo)
+            if (decodeResult.IsEndOfStream)
             {
                 _isEndVideo = true;
                 continue;
             }
             
-            if (!successFrame)
+            if (!decodeResult.IsSuccessed)
             {
                 continue;
             }
@@ -232,7 +234,7 @@ public class VideoEngine : IDisposable
             if (_isDisposed)
                 break;
 
-            var frameData = FetchOrMakeFrame(ff_frame);
+            var frameData = FetchOrMakeFrame(decodeResult.FrameBitmapRGBA8888);
             sw.StopAndCout("Engine cycle");
 
             if (frameData == null)
@@ -253,17 +255,7 @@ public class VideoEngine : IDisposable
         }
     }
 
-    private FrameDataNative FetchOrMakeFrameAbs(AVFrame ffframe)
-    {
-        FrameDataNative? frame;
-        while ((frame = FetchOrMakeFrame(ffframe)) == null)
-        {
-            Thread.Sleep(3);
-        }
-        return frame;
-    }
-
-    private unsafe FrameDataNative? FetchOrMakeFrame(AVFrame ffframe)
+    private unsafe FrameDataNative? FetchOrMakeFrame(byte* frameBitmapRGBA8888)
     {
         Debug.WriteLine("Starting FetchOrMakeFrame");
         const int MAX_FRAMES = 6;
@@ -277,7 +269,7 @@ public class VideoEngine : IDisposable
             _totalPool.Add(free);
         }
 
-        nint pointerFFMpegBitmap = (IntPtr)ffframe.data[0];
+        nint pointerFFMpegBitmap = (nint)frameBitmapRGBA8888;
         //uint length = (uint)(free.Width * free.Height * free.BytesPerPixel);
         int length = free.Width * free.Height * free.BytesPerPixel;
         Debug.WriteLine($"Copy {pointerFFMpegBitmap} => {free.Pointer} ({length} length)");

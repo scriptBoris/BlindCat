@@ -1,3 +1,5 @@
+using FFMpegDll.Models;
+
 namespace FFMpegDll;
 
 public interface IAudioDecoder : IDisposable
@@ -7,4 +9,5 @@ public interface IAudioDecoder : IDisposable
     int Channels { get; }
     int OutputSampleBits { get; }
     bool TryDecodeNextSample(out Span<byte> frameSampleData);
+    Task<AudioMetadata> LoadMetadataAsync(CancellationToken cancel);
 }

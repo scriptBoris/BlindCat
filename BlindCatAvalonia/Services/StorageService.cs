@@ -16,6 +16,7 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Threading;
 using BlindCatAvalonia.Models;
+using BlindCatAvalonia.SDcontrols;
 using BlindCatAvalonia.Tools;
 
 namespace BlindCatAvalonia.Services;
@@ -233,7 +234,16 @@ public class StorageService : IStorageService
 
                 var pathThumbnail = Path.Combine(dirThumbnails, guid.ToString());
                 var enc = new EncryptionArgs { EncryptionMethod = BlindCatCore.Enums.EncryptionMethods.None };
-                using var thumbnailRes = await _fFMpegService.SaveThumbnail(originFilePath, mediaFormat, pathThumbnail, enc, password);
+                using var thumbnailRes = await ImagePreview.SaveThumbnail(
+                    _fFMpegService,
+                    _crypto,
+                    originFilePath,
+                    mediaFormat,
+                    pathThumbnail,
+                    enc,
+                    CancellationToken.None
+                );
+                
                 if (thumbnailRes.IsFault)
                     return thumbnailRes.AsError;
 

@@ -9,10 +9,11 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using BlindCatAvalonia.Services;
+using BlindCatCore.Models;
+using BlindCatCore.Models.Media;
 using FFmpeg.AutoGen.Abstractions;
 using FFMpegDll;
-using FFMpegProcessor;
-using FFMpegProcessor.Models;
+using FFMpegDll.Models;
 
 namespace BlindCatAvalonia.Core;
 
@@ -39,8 +40,7 @@ public class AudioEngine : IDisposable
     public AudioEngine(object play,
         TimeSpan startFrom,
         AudioMetadata meta,
-        IAudioService audio,
-        string pathToFFmpegExe)
+        IAudioService audio)
     {
         _meta = meta;
         _startFrom = startFrom;

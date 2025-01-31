@@ -225,10 +225,19 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
         {
             var enc = new EncryptionArgs
             {
+                Storageid = id,
+                OriginFileSize = size,
                 EncryptionMethod = secFile.EncryptionMethod,
                 Password = password,
             };
-            var decRes = await _ffmpeg.SaveThumbnail(secFile.FilePath, format, pathThumbnail, enc, password);
+            var decRes = await SaveThumbnail(
+                _ffmpeg,
+                _crypto,
+                secFile.FilePath, 
+                format, 
+                pathThumbnail, 
+                enc, 
+                cancel);
             
             if (cancel.IsCancellationRequested)
                 return null;
@@ -260,7 +269,17 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
         var mf = MediaPresentVm.ResolveFormat(filePath);
         if (mf.IsVideo())
         {
-            var res = await _ffmpeg.DecodePicture(filePath, mf, new System.Drawing.Size(250, 250), cancel);
+            var imgSize = new System.Drawing.Size(250, 250);
+            var timeOffset = TimeSpan.FromSeconds(5);
+            var res = await _ffmpeg.DecodePicture(
+                filePath, 
+                mf, 
+                imgSize, 
+                timeOffset, 
+                null,
+                new EncryptionArgs(),
+                cancel);
+            
             if (res.IsFault)
             {
                 error = res;
@@ -393,7 +412,92 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
             return AppResponse.Error("Unexpected error", 3111303, ex);
         }
     }
+    
+    public static async Task<AppResponse<DecodeResult>> SaveThumbnail(
+        IFFMpegService _ffmpeg,
+        ICrypto _crypto,
+        string secFileFilePath, 
+        MediaFormats format, 
+        string pathThumbnail, 
+        EncryptionArgs enc,
+        CancellationToken cancel
+    )
+    {
+        var size = new System.Drawing.Size(250, 250); 
+        var offset = TimeSpan.FromMilliseconds(5);
+        AppResponse<DecodeResult> thumbnailRes;
+        if (enc.EncryptionMethod == EncryptionMethods.None)
+        {
+            if (format.IsVideo())
+            {
+                thumbnailRes = await _ffmpeg.DecodePicture(
+                    secFileFilePath, 
+                    format, 
+                    size,
+                    offset,
+                    null,
+                    enc,
+                    cancel
+                );
+            }
+            else
+            {
+                thumbnailRes = await MakeMini(cancel);
+            }
+        }
+        else
+        {
+            if (format.IsVideo())
+            {
+                thumbnailRes = await _ffmpeg.DecodePicture(
+                    secFileFilePath, 
+                    format, 
+                    size,
+                    offset,
+                    null,
+                    enc,
+                    cancel
+                );
+            }
+            else
+            {
+                // todo make mini picture
+                thumbnailRes = await MakeMini(cancel);
+            }
+        }
+        
+        if (thumbnailRes.IsFault)
+            return thumbnailRes;
 
+        var bmp = (SKBitmap)thumbnailRes.Result.Bitmap;
+        using var image = SKImage.FromBitmap(bmp);
+        using var data = image.Encode(SKEncodedImageFormat.Jpeg, 90);
+        using var mem = new MemoryStream();
+        data.SaveTo(mem);
+        mem.Position = 0;
+
+        if (enc.Password != null)
+        {
+            await _crypto.EncryptFile(mem, pathThumbnail, enc.Password);
+        }
+        else
+        {
+            throw new NotImplementedException();
+        }
+        
+        return AppResponse.Result(new DecodeResult
+        {
+            Bitmap = bmp,
+            EncodedFormat = MediaFormats.Jpeg,
+        });
+    }
+
+    private static async Task<AppResponse<DecodeResult>> MakeMini(CancellationToken cancel)
+    {
+        // todo make mini picture
+        throw new NotImplementedException();
+    }
+    
     private SKBitmap HandleError(SKBitmap? bitmap, AppResponse error)
     {
         string msg = error.Description;

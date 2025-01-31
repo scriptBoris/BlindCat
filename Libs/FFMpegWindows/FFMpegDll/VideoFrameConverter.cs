@@ -87,4 +87,36 @@ public sealed unsafe class VideoFrameConverter : IDisposable
             height = _destinationSize.Height
         };
     }
+    
+    public byte* Convert(AVFrame* sourceFrame)
+    {
+        var sw = Stopwatch.StartNew();
+        ffmpeg.sws_scale(_pConvertContext,
+            sourceFrame->data,
+            sourceFrame->linesize,
+            0,
+            sourceFrame->height,
+            _dstData,
+            _dstLinesize);
+
+        sw.Stop();
+        if (sw.ElapsedMilliseconds > 1)
+            Debug.WriteLine($"Convert pixels: {sw.ElapsedMilliseconds}ms");
+        
+        return (byte*)_convertedFrameBufferPtr;
+        
+        // var data = new byte_ptr8();
+        // data.UpdateFrom(_dstData);
+        // var linesize = new int8();
+        // linesize.UpdateFrom(_dstLinesize);
+        //
+        //
+        // return new AVFrame
+        // {
+        //     data = data,
+        //     linesize = linesize,
+        //     width = _destinationSize.Width,
+        //     height = _destinationSize.Height
+        // };
+    }
 }

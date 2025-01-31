@@ -114,8 +114,8 @@
             <ItemsRepeater.Layout>
                 <UniformGridLayout
                     ItemsStretch="Uniform"
-                    MinItemHeight="250"
-                    MinItemWidth="250"/>
+                    MinItemHeight="200"
+                    MinItemWidth="200"/>
             </ItemsRepeater.Layout>
 
             <ItemsRepeater.ItemTemplate>

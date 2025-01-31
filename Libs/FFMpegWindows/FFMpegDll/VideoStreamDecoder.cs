@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using FFmpeg.AutoGen.Abstractions;
 using FFMpegDll.Internal;
+using FFMpegDll.Models;
 
 namespace FFMpegDll;
 
@@ -167,7 +168,7 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
         }
     }
 
-    public bool TryDecodeNextFrame(out AVFrame frame, out bool endOfVideo)
+    public FrameDecodeResult TryDecodeNextFrame()
     {
         lock (_locker)
         {
@@ -186,16 +187,30 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
                     
                         if (error == ffmpeg.AVERROR_EOF)
                         {
-                            frame = *_pFrame;
-                            endOfVideo = true;
-                            return false;
+                            // frame = *_pFrame;
+                            // endOfVideo = true;
+                            return new FrameDecodeResult
+                            {
+                                FrameBitmapRGBA8888 = null,
+                                IsSuccessed = false,
+                                IsEndOfStream = true,
+                            };
                         }
                     
                         error.ThrowExceptionIfError();
                     } 
                     while (_pPacket->stream_index != _streamVideoIndex);
-                    
-                    ffmpeg.avcodec_send_packet(_pCodecContext, _pPacket).ThrowExceptionIfError();
+
+                    int err = ffmpeg.avcodec_send_packet(_pCodecContext, _pPacket);
+                    if (err != 0)
+                    {
+                        return new FrameDecodeResult
+                        {
+                            FrameBitmapRGBA8888 = null,
+                            IsSuccessed = false,
+                        };
+                        // err.ThrowExceptionIfError();
+                    }
                 }
                 finally
                 {
@@ -208,18 +223,23 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
 
             error.ThrowExceptionIfError();
 
+            byte* frame_data;
             if (_pCodecContext->hw_device_ctx != null)
             {
                 ffmpeg.av_hwframe_transfer_data(_receivedFrame, _pFrame, 0).ThrowExceptionIfError();
-                frame = ResolveFrame(*_receivedFrame);
+                frame_data = ResolveFrame(_receivedFrame);
             }
             else
             {
-                frame = ResolveFrame(*_pFrame);
+                frame_data = ResolveFrame(_pFrame);
             }
 
-            endOfVideo = false;
-            return true;
+            return new FrameDecodeResult
+            {
+                FrameBitmapRGBA8888 = frame_data,
+                IsSuccessed = true,
+                IsEndOfStream = false,
+            };
         }
     }
 
@@ -240,7 +260,89 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
             return frame;
         }
     }
+    
+    private byte* ResolveFrame(AVFrame* frame)
+    {
+        if (frame->pts != ffmpeg.AV_NOPTS_VALUE)
+        {
+            double timeInSeconds = frame->pts * ffmpeg.av_q2d(_stream_time_base);
+            FrameTime = TimeSpan.FromSeconds(timeInSeconds);
+        }
 
+        if (_converter != null)
+        {
+            return _converter.Convert(frame);
+        }
+        else
+        {
+            return frame->data[0];
+        }
+    }
+
+    public Task<VideoMetadata> LoadMetadataAsync(CancellationToken cancel)
+    {
+        double durationSeconds = 0;
+        long duration = _pFormatContext->duration;
+        if (duration > 0)
+            durationSeconds = duration / (double)ffmpeg.AV_TIME_BASE;
+        
+        string pix_format = _pCodecContext->pix_fmt.ToString();
+        var stream = _pFormatContext->streams[_streamVideoIndex];
+
+        var avgf = stream->avg_frame_rate;
+        double avg_fps = -1;
+        if (avgf.num > 0 && avgf.den > 0)
+            avg_fps = avgf.num / avgf.den;
+
+        string codecShort = ffmpeg.avcodec_get_name(stream->codecpar->codec_id);
+        var codecLongPtr = ffmpeg.avcodec_descriptor_get(stream->codecpar->codec_id)->long_name;
+        string codecLong = Marshal.PtrToStringUTF8((nint)codecLongPtr);
+
+        var aspect = stream->sample_aspect_ratio;
+        string? aspectStr = null;
+        if (aspect.num > 0 && aspect.den > 0)
+            aspectStr = $"{aspect.num}:{aspect.den}";
+
+        int videoStreamCount = 0;
+
+        for (int i = 0; i < _pFormatContext->nb_streams; i++)
+        {
+            if (_pFormatContext->streams[i]->codecpar->codec_type == AVMediaType.AVMEDIA_TYPE_VIDEO)
+                videoStreamCount++;
+        }
+        
+        var streams = new VideoStreamMetadata[videoStreamCount];
+        int streamIndex = 0;
+        for (int i = 0; i < _pFormatContext->nb_streams; i++)
+        {
+            if (_pFormatContext->streams[i]->codecpar->codec_type == AVMediaType.AVMEDIA_TYPE_VIDEO)
+            {
+                var str = _pFormatContext->streams[i];
+                streams[streamIndex] = new VideoStreamMetadata
+                {
+                    // todo Сделать мапинг данных для видео стрима
+                    // StartTime = str->start_time,
+                };
+                streamIndex++;
+            }
+        }
+        
+        var meta = new VideoMetadata
+        {
+            Codec = codecShort,
+            CodecLongName = codecLong,
+            Height =  FrameSize.Height,
+            Width = FrameSize.Width,
+            Duration = durationSeconds,
+            PixelFormat = pix_format,
+            AvgFramerate = avg_fps,
+            BitRate = (int)_pFormatContext->bit_rate,
+            SampleAspectRatio = aspectStr,
+            Streams = streams,
+        };
+        return Task.FromResult(meta);
+    }
+    
     public void Dispose()
     {
         lock (_locker)

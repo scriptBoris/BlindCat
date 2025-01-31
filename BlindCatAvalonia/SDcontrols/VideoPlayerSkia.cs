@@ -18,9 +18,11 @@ using BlindCatAvalonia.Services;
 using BlindCatCore.Core;
 using BlindCatCore.Enums;
 using BlindCatCore.Models;
+using BlindCatCore.Models.Media;
 using BlindCatCore.Services;
-using FFMpegProcessor;
-using FFMpegProcessor.Models;
+using FFmpeg.AutoGen.Abstractions;
+using FFMpegDll;
+using FFMpegDll.Models;
 using SkiaSharp;
 using IntSize = System.Drawing.Size;
 
@@ -58,6 +60,8 @@ public class VideoPlayerSkia : Control, IMediaPlayer
     public VideoPlayerSkia()
     {
         VideoPlayingToEnd += SkiaFFmpegVideoPlayer_VideoPlayingToEnd;
+        
+        FFMpegDll.Init.InitializeFFMpeg();
 
         _ffmpeg = this.DI<IFFMpegService>();
         _crypto = this.DI<ICrypto>();
@@ -172,7 +176,7 @@ public class VideoPlayerSkia : Control, IMediaPlayer
 
         if (sourceSize.Width > 0 && sourceSize.Height > 0)
         {
-            var scale = Stretch.CalculateScaling(Bounds.Size, sourceSize, StretchDirection);
+            var scale = Stretch.CalculateScaling(finalSize, sourceSize, StretchDirection);
             if (ForceScale != null)
             {
                 double forceScale = ForceScale.Value;
@@ -184,19 +188,19 @@ public class VideoPlayerSkia : Control, IMediaPlayer
                 OnScaleChanged(scale.Length);
         }
 
-        _surface.Matrix = MakeMatrix(sourceSize);
-        sur.Arrange(Bounds);
+        var viewPort = new Rect(0, 0, finalSize.Width, finalSize.Height); 
+        _surface.Matrix = MakeMatrix(sourceSize, viewPort);
+        sur.Arrange(viewPort);
         return result;
     }
 
-    private Matrix MakeMatrix(Size sourceSize)
+    private Matrix MakeMatrix(Size sourceSize, Rect viewPort)
     {
         if (ReuseContext == null || ReuseContext.IsDisposed)
         {
             return default;
         }
 
-        var viewPort = new Rect(Bounds.Size);
         if (sourceSize.Width <= 0 || sourceSize.Height <= 0)
         {
             return default;
@@ -205,7 +209,7 @@ public class VideoPlayerSkia : Control, IMediaPlayer
         if (VisualRoot == null)
             return default;
 
-        var scale = Stretch.CalculateScaling(Bounds.Size, sourceSize, StretchDirection);
+        var scale = Stretch.CalculateScaling(viewPort.Size, sourceSize, StretchDirection);
         if (ForceScale != null)
         {
             double forceScale = ForceScale.Value;
@@ -300,15 +304,15 @@ public class VideoPlayerSkia : Control, IMediaPlayer
         {
             ReuseContext.Dispose();
             ReuseContext = null;
-        };
-
-        // new instances
-        if (cachedAudioMeta != null && cachedAudioMeta.Streams.Length > 0 && cachedAudioMeta.Streams.Any(x => x.IsAudio))
-        {
-            audioEngine = new AudioEngine(audioSource, startFrom, cachedAudioMeta!, _audioService, _ffmpeg.PathToFFmpegExe);
         }
 
-        if (cachedVideoMeta != null && cachedVideoMeta.Streams.Length > 0 && cachedVideoMeta.Streams.Any(x => x.IsVideo))
+        // new instances
+        if (cachedAudioMeta != null && cachedAudioMeta.Streams.Length > 0)
+        {
+            audioEngine = new AudioEngine(audioSource, startFrom, cachedAudioMeta!, _audioService);
+        }
+
+        if (cachedVideoMeta != null && cachedVideoMeta.Streams.Length > 0)
         {
             videoEngine = new VideoEngine(videoSource, startFrom, cachedVideoMeta!);
             videoEngine.FrameReady += OnFrameReady;
@@ -397,11 +401,11 @@ public class VideoPlayerSkia : Control, IMediaPlayer
     {
         get
         {
-            if (cachedVideoMeta != null && cachedVideoMeta.Streams.Any(x => x.IsVideo))
+            if (cachedVideoMeta != null && cachedVideoMeta.Streams.Length > 0)
             {
                 return TimeSpan.FromSeconds(cachedVideoMeta.Duration);
             }
-            else if (cachedAudioMeta != null && cachedAudioMeta.Streams.Any(y => y.IsAudio))
+            else if (cachedAudioMeta != null && cachedAudioMeta.Streams.Length > 0)
             {
                 return TimeSpan.FromSeconds(cachedAudioMeta.Duration);
             }
@@ -542,12 +546,15 @@ public class VideoPlayerSkia : Control, IMediaPlayer
     {
         var metaSize = MakeMeta(filePath, null, null, true, false);
         MetaReceived?.Invoke(this, metaSize);
+        
+        using var proc = new VideoFileDecoder(filePath, AVHWDeviceType.AV_HWDEVICE_TYPE_NONE);
+        using var proca = new AudioFileDecoder(filePath);
 
-        using var proc = new VideoReader2(filePath, _ffmpeg.PathToFFmpegExe, _ffmpeg.PathToFFprobeExe);
-        using var proca = new AudioReader(filePath, _ffmpeg.PathToFFmpegExe, _ffmpeg.PathToFFprobeExe);
+        // using var proc = new VideoReader2(filePath, _ffmpeg.PathToFFmpegExe, _ffmpeg.PathToFFprobeExe);
+        // using var proca = new AudioReader(filePath, _ffmpeg.PathToFFmpegExe, _ffmpeg.PathToFFprobeExe);
 
-        var tv = proc.LoadMetadataAsync(cancellation: cancel);
-        var ta = proca.LoadMetadataAsync(cancellation: cancel);
+        var tv = proc.LoadMetadataAsync(cancel);
+        var ta = proca.LoadMetadataAsync(cancel);
         await Task.WhenAll(tv, ta);
         if (cancel.IsCancellationRequested)
             return;
@@ -566,8 +573,8 @@ public class VideoPlayerSkia : Control, IMediaPlayer
     {
         string password = _storageService.CurrentStorage!.Password!;
 
-        VideoReader2? videoProc = null;
-        AudioReader? audioProc = null;
+        IVideoDecoder? videoProc = null;
+        IAudioDecoder? audioProc = null;
         var id = secureFile.Storage.Guid;
         long? size = secureFile.OriginFileSize;
 
@@ -576,14 +583,13 @@ public class VideoPlayerSkia : Control, IMediaPlayer
             object source;
             if (secureFile.EncryptionMethod == EncryptionMethods.CENC)
             {
-                var fileCenc = new FileCENC
+                var fileCenc = new FileCencArgs
                 {
-                    FilePath = secureFile.FilePath,
                     Key = _crypto.ToCENCPassword(secureFile.Storage.Password!),
                     Kid = _crypto.GetKid(),
                 };
-                videoProc = new VideoReader2(fileCenc, _ffmpeg.PathToFFmpegExe, _ffmpeg.PathToFFprobeExe);
-                audioProc = new AudioReader(fileCenc, _ffmpeg.PathToFFmpegExe, _ffmpeg.PathToFFprobeExe);
+                videoProc = new VideoFileDecoder(secureFile.FilePath, AVHWDeviceType.AV_HWDEVICE_TYPE_NONE, fileCenc);
+                audioProc = new AudioFileDecoder(secureFile.FilePath, fileCenc);
                 source = fileCenc;
             }
             else if (secureFile.EncryptionMethod == EncryptionMethods.dotnet)
@@ -605,8 +611,8 @@ public class VideoPlayerSkia : Control, IMediaPlayer
                 var streamvideo = decryptvideo.Result;
                 var streamaudio = decryptaudio.Result;
 
-                videoProc = new VideoReader2(streamvideo, _ffmpeg.PathToFFmpegExe, _ffmpeg.PathToFFprobeExe);
-                audioProc = new AudioReader(streamaudio, _ffmpeg.PathToFFmpegExe, _ffmpeg.PathToFFprobeExe);
+                videoProc = new VideoStreamDecoder(streamvideo, AVHWDeviceType.AV_HWDEVICE_TYPE_NONE);
+                audioProc = new AudioStreamDecoder(streamaudio);
                 source = new DoubleStream(streamvideo, streamaudio);
             }
             else
@@ -614,13 +620,16 @@ public class VideoPlayerSkia : Control, IMediaPlayer
                 throw new NotSupportedException();
             }
 
-            var mv = await videoProc.LoadMetadataAsync(cancellation: cancel);
+            var mv = await videoProc.LoadMetadataAsync(cancel);
             if (cancel.IsCancellationRequested)
                 return;
 
-            var ma = await audioProc.LoadMetadataAsync(cancellation: cancel);
+            var ma = await audioProc.LoadMetadataAsync(cancel);
             if (cancel.IsCancellationRequested)
                 return;
+            
+            if (source is DoubleStream dstr)
+                dstr.Reset();
 
             await SetupMetaAndPlay(source, mv, ma, cancel);
         }
@@ -760,18 +769,17 @@ public class VideoPlayerSkia : Control, IMediaPlayer
 
             if (cachedAudioMeta != null)
             {
-                var austrs = cachedAudioMeta.Streams.Where(x => x.IsAudio);
-                foreach (var audioStr in austrs)
+                foreach (var audioStr in cachedAudioMeta.Streams)
                 {
                     var ametaItems = new ObservableCollection<FileMetaItem>();
 
-                    ametaItems.TryAdd("Bit rate", audioStr.BitRate);
-                    ametaItems.TryAdd("Sample rate", audioStr.SampleRate);
+                    ametaItems.TryAdd("Bit rate", audioStr.BitRate.ToString());
+                    ametaItems.TryAdd("Sample rate", audioStr.SampleRate.ToString());
                     ametaItems.TryAdd("Codec", audioStr.CodecName);
                     ametaItems.TryAdd("Codec full", audioStr.CodecLongName);
                     ametaItems.TryAdd("Channel layout", audioStr.ChannelLayout);
-                    ametaItems.TryAdd("Channels", audioStr.Channels?.ToString());
-                    ametaItems.TryAdd("Language", audioStr.Tags?.Language);
+                    ametaItems.TryAdd("Channels", audioStr.Channels.ToString());
+                    ametaItems.TryAdd("Language", audioStr.Language);
 
                     if (ametaItems.Count > 0)
                         res.Add(new FileMetaData
@@ -795,6 +803,12 @@ public class VideoPlayerSkia : Control, IMediaPlayer
         {
             Video.Dispose();
             Audio.Dispose();
+        }
+
+        public void Reset()
+        {
+            Video.Position = 0;
+            Audio.Position = 0;
         }
     }
 
