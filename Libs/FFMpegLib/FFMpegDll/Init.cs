@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using FFMpegDll.Models;
 
 namespace FFMpegDll;
 
@@ -14,7 +15,7 @@ public static class Init
     private static object _lock = new();
     private static bool _initialized = false;
 
-    public static void InitializeFFMpeg()
+    public static void InitializeFFMpeg(ProcessorTypes? processorType = null)
     {
         if (_initialized)
             return;
@@ -24,28 +25,47 @@ public static class Init
             if (!_initialized)
             {
                 _initialized = true;
-                RegisterFFmpegBinaries();
+                RegisterFFmpegBinaries(processorType);
                 DynamicallyLoadedBindings.Initialize();
             }
         }
     }
 
-    private static void RegisterFFmpegBinaries()
+    private static void RegisterFFmpegBinaries(ProcessorTypes? processorType = null)
     {
-        string bitness = Environment.Is64BitProcess ? "x64" : "x86";
         string current = AppContext.BaseDirectory;
-        string dir;
+        string? librariesPath = null;
         bool useDirectDir;
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            dir = "win";
+            string bitness = Environment.Is64BitProcess ? "x64" : "x86";
+            string dirName = "win";
             useDirectDir = true;
+            FunctionResolverFactory.ResolvedPlatform = PlatformTypes.Win32NT;
+            librariesPath = Path.Combine(current, "FFmpeg", $"{dirName}-{bitness}");
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            dir = "linux";
+            string bitness = Environment.Is64BitProcess ? "x64" : "x86";
+            string dirName = "linux";
             useDirectDir = false;
+            FunctionResolverFactory.ResolvedPlatform = PlatformTypes.Unix;
+            librariesPath = Path.Combine(current, "FFmpeg", $"{dirName}-{bitness}");
+        }
+        else if (OperatingSystem.IsAndroid())
+        {
+            string dirName = "droid";
+            useDirectDir = false;
+            string bitness = processorType.Value switch
+            {
+                ProcessorTypes.x86 => "x86",
+                ProcessorTypes.x86_64 => "x64",
+                ProcessorTypes.ARM64 => "arm64-v8a",
+                _ => throw new InvalidOperationException("Not setuped processor type."),
+            };
+            FunctionResolverFactory.ResolvedPlatform = PlatformTypes.Android;
+            librariesPath = Path.Combine(current, "FFmpeg", $"{dirName}-{bitness}");
         }
         else
         {
@@ -55,15 +75,14 @@ public static class Init
         if (!useDirectDir)
             return;
         
-        string probe = Path.Combine(current, "FFmpeg", $"{dir}-{bitness}");
-
-        if (Directory.Exists(probe))
+        if (Directory.Exists(librariesPath))
         {
-            DynamicallyLoadedBindings.LibrariesPath = probe;
+            string[] files = Directory.GetFiles(librariesPath);
+            DynamicallyLoadedBindings.LibrariesPath = librariesPath;
         }
         else
         {
-            throw new InvalidDataException($"No match ffmpeg dll files by path: \"{probe}\"");
+            throw new InvalidDataException($"No match ffmpeg dll files by path: \"{librariesPath}\"");
         }
     }
 }

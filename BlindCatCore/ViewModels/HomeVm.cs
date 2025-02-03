@@ -37,6 +37,7 @@ public class HomeVm : BaseVm
         CommandSelectItem = new Cmd<HomeItem>(ActionSelectItem);
         CommandOpenStorage = new Cmd<StorageDir>(ActionOpenStorage);
         CommandOpenPlugin = new Cmd<IPlugin>(ActionOpenPlugin);
+        CommandOpenFile = new Cmd(ActionOpenFile);
 
         Items =
         [
@@ -99,7 +100,9 @@ public class HomeVm : BaseVm
     public IPlugin[] Plugins { get; private set; } = [];
 
     #region commands
+
     public ICommand CommandSelectItem { get; private set; }
+
     private async void ActionSelectItem(HomeItem x)
     {
         if (x.Preaction != null)
@@ -110,6 +113,26 @@ public class HomeVm : BaseVm
         }
 
         await GoTo(x.Key);
+    }
+
+    public IAsyncCommand CommandOpenFile { get; private init; }
+    private async Task ActionOpenFile()
+    {
+        var res = await _viewPlatforms.SelectMediaFile(View);
+        if (res == null)
+            return;
+
+        res.Stream.Dispose();
+        await Task.Delay(500);
+        var key = new MediaPresentVm.Key
+        {
+            SourceFile = new LocalFile
+            {
+                Id = 0,
+                FilePath = res.Path,
+            },
+        };
+        await GoTo(key);
     }
 
     public ICommand CommandOpenStorage { get; private set; }
@@ -125,6 +148,7 @@ public class HomeVm : BaseVm
                 await HandleError(res);
                 return;
             }
+
             pass = storageDir.Password;
         }
 
@@ -167,12 +191,10 @@ public class HomeVm : BaseVm
             await HandleError(importRes);
     });
 
-    public ICommand CommandAddStorage => new Cmd(() =>
-    {
-        GoTo(new StorageCreateVm.Key { });
-    });
+    public ICommand CommandAddStorage => new Cmd(() => { GoTo(new StorageCreateVm.Key { }); });
 
     public ICommand CommandOpenPlugin { get; private init; }
+
     private async Task ActionOpenPlugin(IPlugin plugin)
     {
         var cancel = new CancellationTokenSource();
@@ -193,6 +215,7 @@ public class HomeVm : BaseVm
             api?.Dispose();
         }
     }
+
     #endregion commands
 
     public override async void OnConnectToNavigation()
@@ -213,10 +236,10 @@ public class HomeVm : BaseVm
                 FilePath = filePath,
             };
 
-            await GoTo(new DirPresentVm.Key 
-            { 
-                DirectoryPath = dir, 
-                Directory = locdic, 
+            await GoTo(new DirPresentVm.Key
+            {
+                DirectoryPath = dir,
+                Directory = locdic,
                 LazyLoadingFile = locfile,
             }, false);
 
@@ -282,8 +305,8 @@ public class HomeVm : BaseVm
             foreach (var item in erros)
             {
                 await ShowError($"Next plugin could not be loaded:\n" +
-                    $" - {Path.GetFileName(item.dll)}\n\n" +
-                    $"Reason: {item.ex}");
+                                $" - {Path.GetFileName(item.dll)}\n\n" +
+                                $"Reason: {item.ex}");
             }
         }
     }

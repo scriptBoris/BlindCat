@@ -6,17 +6,9 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using BlindCatCore.Services;
 
 namespace BlindCatAvalonia.Tools;
-
-public interface IConfig
-{
-    void Write(string key, string? value);
-    string? Read(string key);
-    Task Save();
-    void WriteJSON<T>(string key, T? model);
-    T ReadJSON<T>(string key, T defValue);
-}
 
 public class FileConfig : IConfig
 {

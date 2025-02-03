@@ -22,8 +22,7 @@ public sealed unsafe class VideoFileDecoder : IVideoDecoder, IDisposable
     private readonly object _locker = new();
     private bool _disposed;
 
-    //public VideoFileDecoder(string filePath, AVHWDeviceType HWDeviceType = AVHWDeviceType.AV_HWDEVICE_TYPE_NONE)
-    public VideoFileDecoder(string filePath, AVHWDeviceType HWDeviceType = AVHWDeviceType.AV_HWDEVICE_TYPE_DXVA2, FileCencArgs? args = null)
+    public VideoFileDecoder(string filePath, AVHWDeviceType HWDeviceType, AVPixelFormat convertPixels)
     {
         _pFormatContext = ffmpeg.avformat_alloc_context();
         _receivedFrame = ffmpeg.av_frame_alloc();
@@ -48,21 +47,31 @@ public sealed unsafe class VideoFileDecoder : IVideoDecoder, IDisposable
 
         CodecName = ffmpeg.avcodec_get_name(codec->id);
         FrameSize = new Size(_pCodecContext->width, _pCodecContext->height);
+        //
+        // if (_pCodecContext->pix_fmt != AVPixelFormat.AV_PIX_FMT_RGBA)
+        // {
+        //     var sourceSize = FrameSize;
+        //     var sourcePixelFormat = HWDeviceType == AVHWDeviceType.AV_HWDEVICE_TYPE_NONE
+        //         ? PixelFormat
+        //         : HWDeviceType.GetHWPixelFormat();
+        //     var destinationSize = sourceSize;
+        //     var destinationPixelFormat = AVPixelFormat.AV_PIX_FMT_RGBA;
+        //     _converter = new VideoFrameConverter(sourceSize, sourcePixelFormat, destinationSize, destinationPixelFormat);
+        // }
 
-
-        if (_pCodecContext->pix_fmt != AVPixelFormat.AV_PIX_FMT_RGBA)
+        if (_pCodecContext->pix_fmt != convertPixels)
         {
             var sourceSize = FrameSize;
             var sourcePixelFormat = HWDeviceType == AVHWDeviceType.AV_HWDEVICE_TYPE_NONE
-                ? PixelFormat
+                ? _pCodecContext->pix_fmt
                 : HWDeviceType.GetHWPixelFormat();
             var destinationSize = sourceSize;
-            var destinationPixelFormat = AVPixelFormat.AV_PIX_FMT_RGBA;
+            var destinationPixelFormat = convertPixels;
             _converter = new VideoFrameConverter(sourceSize, sourcePixelFormat, destinationSize, destinationPixelFormat);
         }
 
         //PixelFormat = _pCodecContext->pix_fmt;
-        PixelFormat = AVPixelFormat.AV_PIX_FMT_RGBA;
+        PixelFormat = convertPixels;
         _pPacket = ffmpeg.av_packet_alloc();
         _pFrame = ffmpeg.av_frame_alloc();
     }

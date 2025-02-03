@@ -47,7 +47,7 @@ public class FFMpegServiceDesktop : IFFMpegService
         EncryptionArgs encryptionArgs, CancellationToken cancel)
     {
         FFMpegDll.Init.InitializeFFMpeg();
-        using var decoder = new VideoFileDecoder(path, AVHWDeviceType.AV_HWDEVICE_TYPE_NONE);
+        using var decoder = new VideoFileDecoder(path, AVHWDeviceType.AV_HWDEVICE_TYPE_NONE, AVPixelFormat.AV_PIX_FMT_RGBA);
         var data = await decoder.LoadMetadataAsync(cancel);
         decoder.SeekTo(byTime);
         
@@ -89,6 +89,12 @@ public class FFMpegServiceDesktop : IFFMpegService
     }
 
     public object ResizeBitmap(object bitmap, Size size)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<AppResponse<DecodeResult>> CreateAndSaveThumbnail(string originFilePath, string pathThumbnail, MediaFormats mediaFormat, EncryptionArgs enc,
+        CancellationToken none)
     {
         throw new NotImplementedException();
     }

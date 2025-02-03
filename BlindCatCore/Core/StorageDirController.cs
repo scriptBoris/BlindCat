@@ -94,7 +94,8 @@ public class StorageDirController : IDisposable
 
         var res = TaskExt.Run<IEnumerable<string>>(() =>
         {
-            string[] words = searchText.Trim().Split([' ', ','], StringSplitOptions.RemoveEmptyEntries);
+            char[] splits = new char[] { ' ', ',' };
+            string[] words = searchText.Trim().Split(splits, StringSplitOptions.RemoveEmptyEntries);
             var priority0 = new List<string>();
             var priority1 = new List<string>();
             var priorityRegular = new List<string>();
@@ -226,7 +227,8 @@ public class StorageDirController : IDisposable
     {
         var res = await TaskExt.Run(() =>
         {
-            string[] searchWords = text.Split([' ', ','], StringSplitOptions.RemoveEmptyEntries);
+            char[] splits = new char[] { ' ', ',' };
+            string[] searchWords = text.Split(splits, StringSplitOptions.RemoveEmptyEntries);
             var machedItems = _storageFiles
                 .Where(x =>
                     string.Equals(x.Name, text, StringComparison.OrdinalIgnoreCase) ||

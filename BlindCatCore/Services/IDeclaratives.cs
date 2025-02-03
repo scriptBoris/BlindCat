@@ -2,6 +2,7 @@
 using BlindCatCore.Models;
 using BlindCatCore.ViewModels;
 using System.Diagnostics;
+using BlindCatCore.Enums;
 
 namespace BlindCatCore.Services;
 
@@ -55,11 +56,17 @@ public class Declaratives : IDeclaratives
 {
     private readonly IStorageService _storageService;
     private readonly IViewPlatforms _viewPlatforms;
+    private readonly IFFMpegService _ffmpegService;
+    private readonly ICrypto _crypto;
 
-    public Declaratives(IStorageService storageService, IViewPlatforms viewPlatforms)
+    public Declaratives(IStorageService storageService, IViewPlatforms viewPlatforms,
+        IFFMpegService ffmpegService,
+        ICrypto crypto)
     {
         _storageService = storageService;
         _viewPlatforms = viewPlatforms;
+        _ffmpegService = ffmpegService;
+        _crypto = crypto;
     }
 
     public async Task<AppResponse<StorageDir>> DeclarativeSelectStorage(BaseVm _vm, bool noRemember = false, bool autoInit = false)

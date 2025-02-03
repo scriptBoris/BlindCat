@@ -66,14 +66,16 @@ public class VideoEngine : IDisposable
 
         FFMpegDll.Init.InitializeFFMpeg();
 
+        var hwacc = FFmpeg.AutoGen.Abstractions.AVHWDeviceType.AV_HWDEVICE_TYPE_NONE;
+        var pixfmt = FFmpeg.AutoGen.Abstractions.AVPixelFormat.AV_PIX_FMT_RGBA;
         _meta = meta;
         switch (play)
         {
             case string filePath:
-                _videoDecoder = new FFMpegDll.VideoFileDecoder(filePath, FFmpeg.AutoGen.Abstractions.AVHWDeviceType.AV_HWDEVICE_TYPE_NONE);
+                _videoDecoder = new FFMpegDll.VideoFileDecoder(filePath, hwacc, pixfmt);
                 break;
             case Stream stream:
-                _videoDecoder = new FFMpegDll.VideoStreamDecoder(stream, FFmpeg.AutoGen.Abstractions.AVHWDeviceType.AV_HWDEVICE_TYPE_NONE);
+                _videoDecoder = new FFMpegDll.VideoStreamDecoder(stream, hwacc);
                 break;
             //case FileCENC fileCENC:
             //    videoReader = new RawVideoReader(fileCENC, pathToFFmpegExe);

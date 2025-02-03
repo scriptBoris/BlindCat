@@ -38,6 +38,17 @@ public interface IFFMpegService
     /// <param name="bitmap"></param>
     /// <param name="size"></param>
     object ResizeBitmap(object bitmap, Size size);
+
+    /// <summary>
+    /// Генерирует и сохраняет файл превью
+    /// </summary>
+    /// <param name="originFilePath">Оригинальный файл</param>
+    /// <param name="pathThumbnail">Путь по которому будет сохранен файл</param>
+    /// <param name="mediaFormat"></param>
+    /// <param name="enc"></param>
+    /// <param name="none"></param>
+    Task<AppResponse<DecodeResult>> CreateAndSaveThumbnail(string originFilePath,
+        string pathThumbnail, MediaFormats mediaFormat, EncryptionArgs enc, CancellationToken none);
 }
 
 public class DecodeResult : IDisposable

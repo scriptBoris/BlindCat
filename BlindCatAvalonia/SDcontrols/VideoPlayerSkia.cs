@@ -546,8 +546,10 @@ public class VideoPlayerSkia : Control, IMediaPlayer
     {
         var metaSize = MakeMeta(filePath, null, null, true, false);
         MetaReceived?.Invoke(this, metaSize);
-        
-        using var proc = new VideoFileDecoder(filePath, AVHWDeviceType.AV_HWDEVICE_TYPE_NONE);
+
+        var hwacc = AVHWDeviceType.AV_HWDEVICE_TYPE_NONE;
+        var pixfmt = AVPixelFormat.AV_PIX_FMT_RGBA;
+        using var proc = new VideoFileDecoder(filePath, hwacc, pixfmt);
         using var proca = new AudioFileDecoder(filePath);
 
         // using var proc = new VideoReader2(filePath, _ffmpeg.PathToFFmpegExe, _ffmpeg.PathToFFprobeExe);
@@ -573,6 +575,8 @@ public class VideoPlayerSkia : Control, IMediaPlayer
     {
         string password = _storageService.CurrentStorage!.Password!;
 
+        var hwacc = AVHWDeviceType.AV_HWDEVICE_TYPE_NONE;
+        var pixfmt = AVPixelFormat.AV_PIX_FMT_RGBA;
         IVideoDecoder? videoProc = null;
         IAudioDecoder? audioProc = null;
         var id = secureFile.Storage.Guid;
@@ -583,14 +587,16 @@ public class VideoPlayerSkia : Control, IMediaPlayer
             object source;
             if (secureFile.EncryptionMethod == EncryptionMethods.CENC)
             {
-                var fileCenc = new FileCencArgs
-                {
-                    Key = _crypto.ToCENCPassword(secureFile.Storage.Password!),
-                    Kid = _crypto.GetKid(),
-                };
-                videoProc = new VideoFileDecoder(secureFile.FilePath, AVHWDeviceType.AV_HWDEVICE_TYPE_NONE, fileCenc);
-                audioProc = new AudioFileDecoder(secureFile.FilePath, fileCenc);
-                source = fileCenc;
+                // Реализовать воспроизведение CENC файлов
+                throw new NotImplementedException();
+                // var fileCenc = new FileCencArgs
+                // {
+                //     Key = _crypto.ToCENCPassword(secureFile.Storage.Password!),
+                //     Kid = _crypto.GetKid(),
+                // };
+                // videoProc = new VideoFileDecoder(secureFile.FilePath, hwacc, fileCenc);
+                // audioProc = new AudioFileDecoder(secureFile.FilePath, fileCenc);
+                // source = fileCenc;
             }
             else if (secureFile.EncryptionMethod == EncryptionMethods.dotnet)
             {
@@ -611,7 +617,7 @@ public class VideoPlayerSkia : Control, IMediaPlayer
                 var streamvideo = decryptvideo.Result;
                 var streamaudio = decryptaudio.Result;
 
-                videoProc = new VideoStreamDecoder(streamvideo, AVHWDeviceType.AV_HWDEVICE_TYPE_NONE);
+                videoProc = new VideoStreamDecoder(streamvideo, hwacc);
                 audioProc = new AudioStreamDecoder(streamaudio);
                 source = new DoubleStream(streamvideo, streamaudio);
             }

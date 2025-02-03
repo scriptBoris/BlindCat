@@ -6,6 +6,8 @@ namespace FFmpeg.AutoGen.Bindings.DynamicallyLoaded;
 
 public static class FunctionResolverFactory
 {
+    public static PlatformTypes ResolvedPlatform { get; set; } = PlatformTypes.Unknown;
+    
     public static PlatformID GetPlatformId()
     {
 #if NETSTANDARD2_0_OR_GREATER
@@ -21,14 +23,16 @@ public static class FunctionResolverFactory
 
     public static IFunctionResolver Create()
     {
-        switch (GetPlatformId())
+        switch (ResolvedPlatform)
         {
-            case PlatformID.MacOSX:
+            case PlatformTypes.MacOSX:
                 return new MacFunctionResolver();
-            case PlatformID.Unix:
+            case PlatformTypes.Unix:
                 return new LinuxFunctionResolver();
-            case PlatformID.Win32NT:
+            case PlatformTypes.Win32NT:
                 return new WindowsFunctionResolver();
+            case PlatformTypes.Android:
+                return new AndroidFunctionResolver();
             default:
                 throw new PlatformNotSupportedException();
         }
