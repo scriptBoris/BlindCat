@@ -18,7 +18,6 @@ using BlindCatAvalonia.Services;
 using BlindCatCore.Core;
 using BlindCatCore.Enums;
 using BlindCatCore.Models;
-using BlindCatCore.Models.Media;
 using BlindCatCore.Services;
 using FFmpeg.AutoGen.Abstractions;
 using FFMpegDll;
@@ -32,7 +31,6 @@ public class VideoPlayerSkia : Control, IMediaPlayer
 {
     private readonly object _lock = new();
     private readonly IVideoSurface _surface;
-    private readonly IFFMpegService _ffmpeg;
     private readonly ICrypto _crypto;
     private readonly IStorageService _storageService;
     private readonly IAudioService _audioService;
@@ -63,7 +61,6 @@ public class VideoPlayerSkia : Control, IMediaPlayer
         
         FFMpegDll.Init.InitializeFFMpeg();
 
-        _ffmpeg = this.DI<IFFMpegService>();
         _crypto = this.DI<ICrypto>();
         _storageService = this.DI<IStorageService>();
         _audioService = this.DI<IAudioService>();
@@ -184,7 +181,7 @@ public class VideoPlayerSkia : Control, IMediaPlayer
                 scale = new Vector(x, x);
             }
 
-            if (RenderScale != scale.Length)
+            if (Math.Abs(RenderScale - scale.Length) > 0.001)
                 OnScaleChanged(scale.Length);
         }
 
@@ -217,7 +214,7 @@ public class VideoPlayerSkia : Control, IMediaPlayer
             scale = new Vector(x, x);
         }
 
-        if (RenderScale != scale.Length)
+        if (Math.Abs(RenderScale - scale.Length) > 0.001)
             OnScaleChanged(scale.Length);
 
         var scaledSize = sourceSize * scale;
@@ -227,7 +224,6 @@ public class VideoPlayerSkia : Control, IMediaPlayer
 
         var sourceRect = new Rect(sourceSize).CenterRect(new Rect(destRect.Size / scale));
 
-        var bounds = new Rect(0, 0, ReuseContext.IntFrameSize.Width, ReuseContext.IntFrameSize.Height);
         var scaleMatrix = Matrix.CreateScale(
             destRect.Width / sourceRect.Width,
             destRect.Height / sourceRect.Height);
@@ -392,7 +388,7 @@ public class VideoPlayerSkia : Control, IMediaPlayer
 
     private void OnEndOfVideo(object? invoker, EventArgs eventArgs)
     {
-        VideoPlayingToEnd?.Invoke(this, eventArgs);
+        VideoPlayingToEnd.Invoke(this, eventArgs);
     }
 
     #region media player
@@ -617,7 +613,7 @@ public class VideoPlayerSkia : Control, IMediaPlayer
                 var streamvideo = decryptvideo.Result;
                 var streamaudio = decryptaudio.Result;
 
-                videoProc = new VideoStreamDecoder(streamvideo, hwacc);
+                videoProc = new VideoStreamDecoder(streamvideo, hwacc, pixfmt);
                 audioProc = new AudioStreamDecoder(streamaudio);
                 source = new DoubleStream(streamvideo, streamaudio);
             }

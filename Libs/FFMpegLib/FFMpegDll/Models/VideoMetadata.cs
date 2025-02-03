@@ -37,7 +37,7 @@ public class VideoMetadata
     /// </summary>
     public string PixelFormat { get; set; }
 
-    public VideoStreamMetadata GetFirstVideoStream()
+    public VideoStreamMetadata? GetFirstVideoStream()
     {
         return Streams.FirstOrDefault();
     }

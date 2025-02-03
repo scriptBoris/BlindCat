@@ -12,6 +12,7 @@ namespace BlindCatMauiMobile.Services;
 
 public class FFMpegService : IFFMpegService
 {
+    private const AVPixelFormat PIX_FMT = AVPixelFormat.AV_PIX_FMT_ARGB;
     private readonly ICrypto _crypto;
 
     public FFMpegService(ICrypto crypto)
@@ -25,7 +26,7 @@ public class FFMpegService : IFFMpegService
         CancellationToken cancel)
     {
         FFMpegDll.Init.InitializeFFMpeg();
-        using var decoder = new VideoStreamDecoder(stream, AVHWDeviceType.AV_HWDEVICE_TYPE_NONE);
+        using var decoder = new VideoStreamDecoder(stream, AVHWDeviceType.AV_HWDEVICE_TYPE_NONE, PIX_FMT);
         var data = await decoder.LoadMetadataAsync(cancel);
         decoder.SeekTo(byTime);
 
@@ -48,7 +49,7 @@ public class FFMpegService : IFFMpegService
         EncryptionArgs encryptionArgs, CancellationToken cancel)
     {
         FFMpegDll.Init.InitializeFFMpeg();
-        using var decoder = new VideoFileDecoder(path, AVHWDeviceType.AV_HWDEVICE_TYPE_NONE, AVPixelFormat.AV_PIX_FMT_ARGB);
+        using var decoder = new VideoFileDecoder(path, AVHWDeviceType.AV_HWDEVICE_TYPE_NONE, PIX_FMT);
         var data = await decoder.LoadMetadataAsync(cancel);
         decoder.SeekTo(byTime);
         

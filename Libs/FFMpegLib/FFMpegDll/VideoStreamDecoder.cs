@@ -30,7 +30,7 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
     private bool _disposed;
     private GCHandle _sourceStreamHandle;
 
-    public VideoStreamDecoder(Stream source, AVHWDeviceType acceleration)
+    public VideoStreamDecoder(Stream source, AVHWDeviceType acceleration, AVPixelFormat pixelFormat)
     {
         _sourceStreamHandle = GCHandle.Alloc(new StreamWrapper(source), GCHandleType.Pinned);
 

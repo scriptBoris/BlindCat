@@ -10,12 +10,9 @@ using System.Threading.Tasks;
 using System.Timers;
 using Avalonia.Platform;
 using Avalonia.Threading;
-using BlindCatCore.Models;
-using BlindCatCore.Models.Media;
 using FFmpeg.AutoGen.Abstractions;
 using FFMpegDll;
 using FFMpegDll.Models;
-using IntSize = System.Drawing.Size;
 
 namespace BlindCatAvalonia.Core;
 
@@ -75,7 +72,7 @@ public class VideoEngine : IDisposable
                 _videoDecoder = new FFMpegDll.VideoFileDecoder(filePath, hwacc, pixfmt);
                 break;
             case Stream stream:
-                _videoDecoder = new FFMpegDll.VideoStreamDecoder(stream, hwacc);
+                _videoDecoder = new FFMpegDll.VideoStreamDecoder(stream, hwacc, pixfmt);
                 break;
             //case FileCENC fileCENC:
             //    videoReader = new RawVideoReader(fileCENC, pathToFFmpegExe);
