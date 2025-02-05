@@ -12,7 +12,7 @@ public interface IFFMpegService
     /// <summary>
     /// Получает изображение Thumbnail у видео стрима. 
     /// </summary>
-    Task<AppResponse<DecodeResult>> DecodePicture(Stream stream, MediaFormats? format, Size? size,
+    Task<AppResponse<DecodeResult>> GetThumbnailFromVideo(Stream stream, MediaFormats format, Size size,
         TimeSpan byTime,
         EncryptionArgs encryptionArgs,
         CancellationToken cancel);
@@ -20,7 +20,7 @@ public interface IFFMpegService
     /// <summary>
     /// Получает изображение Thumbnail у видео файла. 
     /// </summary>
-    Task<AppResponse<DecodeResult>> DecodePicture(string? path, MediaFormats? format, Size? size,
+    Task<AppResponse<DecodeResult>> GetThumbnailFromVideo(string path, MediaFormats format, Size size,
         TimeSpan byTime,
         FileCENC? encodingData,
         EncryptionArgs encryptionArgs,

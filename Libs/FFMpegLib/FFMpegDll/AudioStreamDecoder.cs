@@ -1,6 +1,4 @@
-using System.Drawing;
 using System.Runtime.InteropServices;
-using System.Timers;
 using FFmpeg.AutoGen.Abstractions;
 using FFMpegDll.Internal;
 using FFMpegDll.Models;
@@ -63,7 +61,10 @@ public unsafe class AudioStreamDecoder : IAudioDecoder
             .av_find_best_stream(_pFormatContext, AVMediaType.AVMEDIA_TYPE_AUDIO, -1, -1, &acodec, 0);
 
         if (_streamAudioIndex < 0)
+        {
+            CodecName = "";
             return;
+        }
         
         _pCodecContext = ffmpeg.avcodec_alloc_context3(acodec);
         ffmpeg.avcodec_parameters_to_context(_pCodecContext, _pFormatContext->streams[_streamAudioIndex]->codecpar)
@@ -296,51 +297,11 @@ public unsafe class AudioStreamDecoder : IAudioDecoder
 
     public Task<AudioMetadata> LoadMetadataAsync(CancellationToken cancel)
     {
-        double durationSeconds = 0;
-        long duration = _pFormatContext->duration;
-        if (duration > 0)
-            durationSeconds = duration / (double)ffmpeg.AV_TIME_BASE;
-        
-        int audioStreamCount = 0;
-        for (int i = 0; i < _pFormatContext->nb_streams; i++)
+        lock (_locker)
         {
-            if (_pFormatContext->streams[i]->codecpar->codec_type == AVMediaType.AVMEDIA_TYPE_AUDIO)
-                audioStreamCount++;
+            var res = FFmpegHelper.LoadAudioMetadata(_pFormatContext, _pCodecContext, _streamAudioIndex);
+            return Task.FromResult(res);
         }
-        
-        var streams = new AudioStreamMetadata[audioStreamCount];
-        int streamIndex = 0;
-        for (int i = 0; i < _pFormatContext->nb_streams; i++)
-        {
-            if (_pFormatContext->streams[i]->codecpar->codec_type == AVMediaType.AVMEDIA_TYPE_AUDIO)
-            {
-                var str = _pFormatContext->streams[i];
-                
-                string codecShort = ffmpeg.avcodec_get_name(str->codecpar->codec_id);
-                var codecLongPtr = ffmpeg.avcodec_descriptor_get(str->codecpar->codec_id)->long_name;
-                string codecLong = Marshal.PtrToStringUTF8((nint)codecLongPtr);
-                
-                streams[streamIndex] = new AudioStreamMetadata
-                {
-                    CodecName = codecShort,
-                    CodecLongName = codecLong,
-                    SampleRate = str->codecpar->sample_rate,
-                    Channels = str->codecpar->ch_layout.nb_channels,
-                    ChannelLayout = "N/A",
-                    BitRate = (int)str->codecpar->bit_rate,
-                };
-                streamIndex++;
-            }
-        }
-        
-        var meta = new AudioMetadata
-        {
-            Duration = durationSeconds,
-            SampleRate = SampleRate,
-            PredictedSampleCount = (long)(durationSeconds * SampleRate),
-            Streams = streams,
-        };
-        return Task.FromResult(meta);
     }
 
     public void Dispose()

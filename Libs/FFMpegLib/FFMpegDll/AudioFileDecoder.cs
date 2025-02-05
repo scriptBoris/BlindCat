@@ -1,5 +1,3 @@
-using System.Drawing;
-using System.Runtime.InteropServices;
 using FFmpeg.AutoGen.Abstractions;
 using FFMpegDll.Internal;
 using FFMpegDll.Models;
@@ -28,8 +26,14 @@ public unsafe class AudioFileDecoder : IAudioDecoder
         ffmpeg.avformat_find_stream_info(_pFormatContext, null).ThrowExceptionIfError();
         AVCodec* codec = null;
         _streamAudioIndex = ffmpeg
-            .av_find_best_stream(_pFormatContext, AVMediaType.AVMEDIA_TYPE_AUDIO, -1, -1, &codec, 0)
-            .ThrowExceptionIfError();
+            .av_find_best_stream(_pFormatContext, AVMediaType.AVMEDIA_TYPE_AUDIO, -1, -1, &codec, 0);
+
+        if (_streamAudioIndex < 0)
+        {
+            CodecName = "";
+            return;
+        }
+        
         _pCodecContext = ffmpeg.avcodec_alloc_context3(codec);
 
         ffmpeg.avcodec_parameters_to_context(_pCodecContext, _pFormatContext->streams[_streamAudioIndex]->codecpar)
@@ -216,13 +220,13 @@ public unsafe class AudioFileDecoder : IAudioDecoder
         }
     }
 
-    public async Task<AudioMetadata> LoadMetadataAsync(CancellationToken cancel)
+    public Task<AudioMetadata> LoadMetadataAsync(CancellationToken cancel)
     {
-        var meta = new AudioMetadata
+        lock (_locker)
         {
-
-        };
-        return meta;
+            var res = FFmpegHelper.LoadAudioMetadata(_pFormatContext, _pCodecContext, _streamAudioIndex);
+            return Task.FromResult(res);
+        }
     }
 
     public void Dispose()

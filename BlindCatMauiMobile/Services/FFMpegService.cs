@@ -80,13 +80,13 @@ public class FFMpegService : IFFMpegService
         return bmp;
     }
 
-    public Task<AppResponse<DecodeResult>> DecodePicture(Stream stream, MediaFormats? format, IntSize? size, TimeSpan byTime, EncryptionArgs encryptionArgs,
+    public Task<AppResponse<DecodeResult>> GetThumbnailFromVideo(Stream stream, MediaFormats? format, IntSize? size, TimeSpan byTime, EncryptionArgs encryptionArgs,
         CancellationToken cancel)
     {
         throw new NotImplementedException();
     }
 
-    public Task<AppResponse<DecodeResult>> DecodePicture(string? path, MediaFormats? format, IntSize? size, TimeSpan byTime, FileCENC? encodingData,
+    public Task<AppResponse<DecodeResult>> GetThumbnailFromVideo(string? path, MediaFormats? format, IntSize? size, TimeSpan byTime, FileCENC? encodingData,
         EncryptionArgs encryptionArgs, CancellationToken cancel)
     {
         throw new NotImplementedException();
@@ -115,7 +115,7 @@ public class FFMpegService : IFFMpegService
         {
             if (format.IsVideo())
             {
-                thumbnailRes = await DecodePicture(
+                thumbnailRes = await GetThumbnailFromVideo(
                     originFilePath, 
                     format, 
                     size,
@@ -134,7 +134,7 @@ public class FFMpegService : IFFMpegService
         {
             if (format.IsVideo())
             {
-                thumbnailRes = await DecodePicture(
+                thumbnailRes = await GetThumbnailFromVideo(
                     originFilePath, 
                     format, 
                     size,

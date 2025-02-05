@@ -271,7 +271,7 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
         {
             var imgSize = new System.Drawing.Size(250, 250);
             var timeOffset = TimeSpan.FromSeconds(5);
-            var res = await _ffmpeg.DecodePicture(
+            var res = await _ffmpeg.GetThumbnailFromVideo(
                 filePath, 
                 mf, 
                 imgSize, 
@@ -430,7 +430,7 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
         {
             if (format.IsVideo())
             {
-                thumbnailRes = await _ffmpeg.DecodePicture(
+                thumbnailRes = await _ffmpeg.GetThumbnailFromVideo(
                     secFileFilePath, 
                     format, 
                     size,
@@ -449,7 +449,7 @@ public class ImagePreview : SKBitmapControl, IVirtualGridRecycle
         {
             if (format.IsVideo())
             {
-                thumbnailRes = await _ffmpeg.DecodePicture(
+                thumbnailRes = await _ffmpeg.GetThumbnailFromVideo(
                     secFileFilePath, 
                     format, 
                     size,

@@ -254,7 +254,7 @@ public class VideoEngine : IDisposable
         }
     }
 
-    private unsafe FrameDataNative? FetchOrMakeFrame(byte* frameBitmapRGBA8888)
+    private unsafe FrameDataNative? FetchOrMakeFrame(nint frameBitmapRGBA8888)
     {
         Debug.WriteLine("Starting FetchOrMakeFrame");
         const int MAX_FRAMES = 6;
