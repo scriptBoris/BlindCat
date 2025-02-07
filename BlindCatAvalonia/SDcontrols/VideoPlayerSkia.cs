@@ -21,6 +21,7 @@ using BlindCatCore.Models;
 using BlindCatCore.Services;
 using FFmpeg.AutoGen.Abstractions;
 using FFMpegDll;
+using FFMpegDll.Core;
 using FFMpegDll.Models;
 using SkiaSharp;
 using IntSize = System.Drawing.Size;
@@ -142,7 +143,8 @@ public class VideoPlayerSkia : Control, IMediaPlayer
                 return availableSize;
             }
 
-            result = Stretch.CalculateSize(availableSize, ReuseContext.FrameSize, StretchDirection);
+            var size = new Size(ReuseContext.FrameSize.Width, ReuseContext.FrameSize.Height);
+            result = Stretch.CalculateSize(availableSize, size, StretchDirection);
             return result;
         }
         finally
@@ -155,10 +157,11 @@ public class VideoPlayerSkia : Control, IMediaPlayer
     protected override Size ArrangeOverride(Size finalSize)
     {
         Size result;
-        var sourceSize = ReuseContext?.FrameSize ?? default;
+        var isourceSize = ReuseContext?.FrameSize ?? default;
+        var sourceSize = new Size(isourceSize.Width, isourceSize.Height);
         var sur = (Control)_surface;
 
-        if (ReuseContext is null || ReuseContext.IsDisposed)
+        if (ReuseContext is null)
         {
             result = finalSize;
         }
@@ -193,7 +196,7 @@ public class VideoPlayerSkia : Control, IMediaPlayer
 
     private Matrix MakeMatrix(Size sourceSize, Rect viewPort)
     {
-        if (ReuseContext == null || ReuseContext.IsDisposed)
+        if (ReuseContext == null)
         {
             return default;
         }
@@ -340,8 +343,10 @@ public class VideoPlayerSkia : Control, IMediaPlayer
         timerProgress.AutoReset = true;
         CalculateProgress(startFrom);
         _progressTick = rateMs / Duration.TotalMilliseconds;
-        ReuseContext = new ReuseContextSkia(new IntSize(cachedVideoMeta.Width, cachedVideoMeta.Height), videoEngine);
+        var frameSize = new IntSize(cachedVideoMeta.Width, cachedVideoMeta.Height);
+        ReuseContext = new SoftwareRenderSurface.BitmapPool(frameSize);
         InvalidateMeasure();
+        videoEngine.SetupContext(ReuseContext);
         _surface.SetupSource(ReuseContext);
 
         if (autoStart)
@@ -379,10 +384,8 @@ public class VideoPlayerSkia : Control, IMediaPlayer
         }
     }
 
-    private void OnFrameReady(object? invoker, IFrameData frameData)
+    private void OnFrameReady(object? invoker, EventArgs args)
     {
-        var ct = ReuseContext as ReuseContextSkia;
-        ct?.Push(frameData);
         _surface.OnFrameReady();
     }
 
@@ -811,214 +814,6 @@ public class VideoPlayerSkia : Control, IMediaPlayer
         {
             Video.Position = 0;
             Audio.Position = 0;
-        }
-    }
-
-    private class ReuseContextSkia : IReusableContext
-    {
-        private readonly FramePool _framePool;
-
-        public ReuseContextSkia(IntSize intFrameSize, VideoEngine engine)
-        {
-            _framePool = new FramePool(engine);
-            IntFrameSize = intFrameSize;
-        }
-
-        public IntSize IntFrameSize { get; private set; }
-        public bool IsDisposed { get; private set; }
-
-        public void Push(IFrameData frame)
-        {
-            _framePool.Add(frame);
-        }
-
-        public IFrameData? GetFrame()
-        {
-            return _framePool.FetchActualLoseOther2();
-        }
-
-        public void RecycleFrame(IFrameData data)
-        {
-            _framePool.Free(data);
-        }
-
-        public void Dispose()
-        {
-            if (IsDisposed)
-                return;
-
-            IsDisposed = true;
-            _framePool.Dispose();
-        }
-    }
-
-    private class FramePool : IDisposable
-    {
-        private readonly List<IFrameData> _listDraw = [];
-        private readonly List<IFrameData> _listReady = [];
-        private readonly VideoEngine _videoEngine;
-        private readonly object _lock = new();
-        private bool _disposed;
-        private IFrameData? _current;
-
-        public FramePool(VideoEngine videoEngine)
-        {
-            _videoEngine = videoEngine;
-        }
-
-        public int Count => _listReady.Count;
-
-        public void Add(IFrameData frame)
-        {
-            lock (_lock)
-            {
-                _listReady.Add(frame);
-            }
-        }
-
-        public IFrameData? FetchActualLoseOther2()
-        {
-            lock (_lock)
-            {
-                var frame = FetchActualLoseOther();
-                if (frame == null)
-                {
-                    frame = _current;
-                }
-                else
-                {
-                    _current = frame;
-                }
-                return frame;
-            }
-        }
-
-        public IFrameData? FetchActualLoseOther()
-        {
-            lock (_lock)
-            {
-                switch (_listReady.Count)
-                {
-                    // hard code for improve performance
-                    case 0:
-                        return null;
-                    case 1:
-                        var frameData1 = _listReady[0];
-
-                        frameData1.IsLocked = true;
-                        _listReady.Remove(frameData1);
-                        _listDraw.Add(frameData1);
-                        return frameData1;
-                    case 2:
-                        var f2_0 = _listReady[0];
-                        var frameData2 = _listReady[1];
-
-                        _listReady.Remove(f2_0);
-                        _videoEngine.Recycle(f2_0);
-
-                        frameData2.IsLocked = true;
-                        _listReady.Remove(frameData2);
-                        _listDraw.Add(frameData2);
-                        return frameData2;
-                    case 3:
-                        var f3_0 = _listReady[0];
-                        var f3_1 = _listReady[1];
-                        var frameData3 = _listReady[2];
-
-                        _listReady.Remove(f3_0);
-                        _videoEngine.Recycle(f3_0);
-
-                        _listReady.Remove(f3_1);
-                        _videoEngine.Recycle(f3_1);
-
-                        frameData3.IsLocked = true;
-                        _listReady.Remove(frameData3);
-                        _listDraw.Add(frameData3);
-                        return frameData3;
-                    case 4:
-                        var f4_0 = _listReady[0];
-                        var f4_1 = _listReady[1];
-                        var f4_2 = _listReady[2];
-                        var frameData4 = _listReady[3];
-
-                        _listReady.Remove(f4_0);
-                        _videoEngine.Recycle(f4_0);
-
-                        _listReady.Remove(f4_1);
-                        _videoEngine.Recycle(f4_1);
-
-                        _listReady.Remove(f4_2);
-                        _videoEngine.Recycle(f4_2);
-
-                        frameData4.IsLocked = true;
-                        _listReady.Remove(frameData4);
-                        _listDraw.Add(frameData4);
-                        return frameData4;
-                    default:
-                        var last = _listReady.Last();
-                        last.IsLocked = true;
-                        _listReady.Remove(last);
-                        _listDraw.Add(last);
-
-                        for (int i = _listReady.Count - 1; i >= 0; i--)
-                        {
-                            var del = _listReady[i];
-                            _listReady.Remove(del);
-                            _videoEngine.Recycle(del);
-                        }
-
-                        return last;
-                }
-            }
-        }
-
-        public IFrameData? FetchCarefulAndLock()
-        {
-            lock (_lock)
-            {
-                switch (_listReady.Count)
-                {
-                    case 0:
-                        return null;
-                    default:
-                        var frameData = _listReady.First();
-                        frameData.IsLocked = true;
-                        _listReady.Remove(frameData);
-                        _listDraw.Add(frameData);
-                        return frameData;
-                }
-            }
-        }
-
-        public void Free(IFrameData data)
-        {
-            lock (_lock)
-            {
-                if (_listDraw.Remove(data))
-                {
-                    _videoEngine.Recycle(data);
-                }
-                else
-                {
-                    // todo фрейм не находится в коллекции отрисованных, что-то пошло не так?
-                    //Debugger.Break();
-                    //throw new InvalidOperationException();
-                }
-            }
-        }
-
-        public void Dispose()
-        {
-            lock (_lock)
-            {
-                if (_disposed)
-                    return;
-
-                _disposed = true;
-                _listDraw.Clear();
-                _listReady.Clear();
-                GC.SuppressFinalize(this);
-            }
         }
     }
 }

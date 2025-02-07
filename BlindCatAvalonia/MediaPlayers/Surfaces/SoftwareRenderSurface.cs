@@ -1,9 +1,7 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -13,51 +11,47 @@ using Avalonia.Rendering.SceneGraph;
 using Avalonia.Threading;
 using BlindCatAvalonia.Core;
 using BlindCatCore.Core;
+using FFMpegDll.Core;
 using IntSize = System.Drawing.Size;
 
 namespace BlindCatAvalonia.MediaPlayers.Surfaces;
 
-public interface IReusableContext : IDisposable
-{
-    IntSize IntFrameSize { get; }
-    PixelSize PixelSize => new(IntFrameSize.Width, IntFrameSize.Height);
-    Size FrameSize => new(IntFrameSize.Width, IntFrameSize.Height);
-    bool IsDisposed { get; }
-
-    IFrameData? GetFrame();
-    void RecycleFrame(IFrameData data);
-}
-
 public class SoftwareRenderSurface : Control, IVideoSurface
 {
     private IReusableContext? _reuseContext;
-    private BitmapPool? _bitmapPool;
-
+    private ConcurrentStack<IReusableBitmap> _stack = new();
+    private IReusableBitmap? _lastFrame;
+    
     public Matrix Matrix { get; set; }
 
     public void SetupSource(IReusableContext source)
     {
         _reuseContext = source;
-        _bitmapPool = new BitmapPool(source.IntFrameSize);
     }
 
     public void OnFrameReady()
     {
-        Dispatcher.UIThread.Post(InvalidateVisual, DispatcherPriority.Render);
+        Dispatcher.UIThread.Post(() =>
+        {
+            var frame = _reuseContext?.GetFrame();
+            if (frame != null)
+            {
+                _stack.Push(frame);
+                InvalidateVisual();
+            }
+        }, DispatcherPriority.Render);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
-        _bitmapPool?.Dispose();
-        _bitmapPool = null;
+        _reuseContext = null;
     }
 
     public override void Render(DrawingContext context)
     {
         var reuseContext = _reuseContext;
-        var bitmapPool = _bitmapPool;
-        if (reuseContext == null || reuseContext.IsDisposed || bitmapPool == null)
+        if (reuseContext == null)
         {
             context.DrawRectangle(new SolidColorBrush(Colors.Transparent), null, Bounds, 0);
             return;
@@ -65,27 +59,33 @@ public class SoftwareRenderSurface : Control, IVideoSurface
 
         var viewPort = new Rect(Bounds.Size);
         var matrix = Matrix;
-        var bounds = new Rect(0, 0, reuseContext.IntFrameSize.Width, reuseContext.IntFrameSize.Height);
+        var bounds = new Rect(0, 0, reuseContext.FrameSize.Width, reuseContext.FrameSize.Height);
 
         using (context.PushClip(viewPort))
         using (context.PushTransform(matrix))
         {
-            var frameData = reuseContext.GetFrame();
-            if (frameData == null)
-                return;
-            
-            var bmp = bitmapPool.Resolve();
-            var bitmapSize = reuseContext.PixelSize;
-            using (var vok = bmp.Lock())
+            if (_stack.TryPop(out var bmp))
             {
-                frameData.CopyTo(vok.Address);
-                reuseContext.RecycleFrame(frameData);
+                // Освобождаем все неактуальные кадры
+                while (_stack.TryPop(out var unactual))
+                    Reuse((Bitmap)unactual);
+
+                // Запоминаем последний успешный кадр
+                _lastFrame = bmp; 
             }
 
-            var rect = new Rect(0, 0, bounds.Width, bounds.Height);
-            var op = new DrawOperation(bmp, rect, () => bitmapPool.PushPipeline());
-            context.Custom(op);
+            if (_lastFrame != null)
+            {
+                var rect = new Rect(0, 0, bounds.Width, bounds.Height);
+                var op = new DrawOperation((Bitmap)_lastFrame, rect, Reuse);
+                context.Custom(op);
+            }
         }
+    }
+
+    private void Reuse(Bitmap bmp)
+    {
+        _reuseContext?.RecycleFrame((IReusableBitmap)bmp);
     }
 
     private class DrawOperation : ICustomDrawOperation
@@ -93,14 +93,15 @@ public class SoftwareRenderSurface : Control, IVideoSurface
         private readonly IDeferredDisposing? _lat;
         private readonly Bitmap _bmp;
         private readonly Rect _bounds;
-        private readonly Action _disposeCallback;
+        private readonly Action<Bitmap> _disposeCallback;
 
-        public DrawOperation(Bitmap bitmap, Rect bounds, Action disposeCallback)
+        public DrawOperation(Bitmap bitmap, Rect bounds, Action<Bitmap> disposeCallback)
         {
             _bmp = bitmap;
             _bounds = bounds;
             _disposeCallback = disposeCallback;
-            if (_bmp is IDeferredDisposing latency) _lat = latency;
+            if (_bmp is IDeferredDisposing latency)
+                _lat = latency;
         }
 
         public Rect Bounds => _bounds;
@@ -116,100 +117,106 @@ public class SoftwareRenderSurface : Control, IVideoSurface
 
         public void Dispose()
         {
-            _disposeCallback();
-            if (_lat?.IsReadyDispose ?? false) _lat.Dispose();
+            _disposeCallback(_bmp);
+            if (_lat?.IsReadyDispose ?? false)
+                _lat.Dispose();
+
             GC.SuppressFinalize(this);
         }
     }
 
-    private class BitmapPool : IDisposable
+    public class BitmapPool : IReusableContext
     {
-        private readonly ConcurrentQueueExt<ReusableBitmap> _opPipeline = new();
-        private readonly List<ReusableBitmap> _pool = [];
+        private readonly ConcurrentQueueExt<IReusableBitmap> _opPipeline = new();
+        private readonly List<IReusableBitmap> _recyclePool = [];
+        private readonly List<IReusableBitmap> _allPool = [];
         private readonly PixelSize _pixSize;
         private readonly Vector _vector;
-        private bool _disposed = false;
+        private readonly PixelFormat _pix;
+        private readonly object _lock = new();
+        private bool _disposed;
+        private int _countFrames;
 
         public BitmapPool(IntSize size)
         {
             _pixSize = new PixelSize(size.Width, size.Height);
             _vector = new Vector(96, 96);
-            var bmp0 = new ReusableBitmap(_pixSize, _vector, PixelFormat.Rgba8888, AlphaFormat.Opaque, "#1");
-            var bmp1 = new ReusableBitmap(_pixSize, _vector, PixelFormat.Rgba8888, AlphaFormat.Opaque, "#2");
-            _pool.Add(bmp0);
-            _pool.Add(bmp1);
+            _pix = PixelFormat.Rgba8888;
+            
+            for (int i = 0; i < 3; i++)
+            {
+                _countFrames++;
+                var bmp = new ReusableBitmap(_pixSize, _vector, _pix, AlphaFormat.Opaque, "#" + _countFrames);
+                _recyclePool.Add(bmp);
+                _allPool.Add(bmp);
+                Console.WriteLine($"Generated new BITMAP #{_countFrames}");
+            }                    
+
+            FrameSize = size;
+        }
+
+        public IntSize FrameSize { get; }
+        public int QueuedFrames => _opPipeline.Count;
+
+        public IReusableBitmap? GetFrame()
+        {
+            if (_opPipeline.TryDequeue(out var op))
+            {
+                return op;
+            }
+
+            return null;
+        }
+
+        public void PushFrame(nint bitmapArray)
+        {
+            lock (_lock)
+            {
+                var bmp = _recyclePool.FirstOrDefault();
+                if (bmp != null)
+                {
+                    _recyclePool.Remove(bmp);
+                }
+                else
+                {
+                    _countFrames++;
+                    bmp = new ReusableBitmap(_pixSize,
+                        _vector,
+                        _pix,
+                        AlphaFormat.Opaque,
+                        $"#{_countFrames}");
+                    _allPool.Add(bmp);
+                    Console.WriteLine($"Generated new BITMAP #{_countFrames}");
+                }
+
+                bmp.Populate(bitmapArray);
+                _opPipeline.Enqueue(bmp);
+            }
+        }
+
+        public void RecycleFrame(IReusableBitmap data)
+        {
+            lock (_lock)
+            {
+                _recyclePool.Add(data);
+            }
         }
 
         public void Dispose()
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             _disposed = true;
-            for (int i = _pool.Count - 1; i >= 0; i--)
+            for (int i = _allPool.Count - 1; i >= 0; i--)
             {
-                var bmp = _pool[i];
+                var bmp = (ReusableBitmap)_allPool[i];
                 if (bmp.IsRendering)
                     bmp.IsReadyDispose = true;
                 else
                     bmp.Dispose();
-                _pool.RemoveAt(i);
+                _allPool.RemoveAt(i);
             }
+
             GC.SuppressFinalize(this);
-        }
-
-        public ReusableBitmap Resolve()
-        {
-            ReusableBitmap? match;
-            match = _pool.FirstOrDefault(x => !x.IsRendering);
-
-            if (match == null)
-            {
-                match = new ReusableBitmap(_pixSize, _vector, PixelFormat.Rgba8888, AlphaFormat.Opaque)
-                {
-                    DebugName = $"#{_pool.Count + 1}",
-                };
-                _pool.Add(match);
-            }
-
-            match.IsRendering = true;
-            _opPipeline.Enqueue(match);
-            return match;
-        }
-
-        public void PushPipeline()
-        {
-            lock (_opPipeline.Locker)
-            {
-                if (_opPipeline.Count == 1)
-                {
-                    // static image
-                }
-                else
-                {
-                    if (_opPipeline.TryDequeue(out var bmp))
-                    {
-                        bmp.IsRendering = false;
-                        //if (bmp == current)
-                        //{
-                        //    bmp.Free();
-                        //}
-                        //else
-                        //{
-                        //    // something went wrong?
-                        //    Debugger.Break();
-                        //}
-                    }
-                }
-            }
-        }
-
-        public void Free(ReusableBitmap bitmap)
-        {
-            bitmap.IsRendering = false;
-
-            if (_disposed)
-            {
-                bitmap.Dispose();
-            }
         }
     }
 }
