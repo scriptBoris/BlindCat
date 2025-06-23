@@ -1,7 +1,6 @@
 using System;
 using System.Drawing;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using BlindCatCore.Core;
@@ -91,14 +90,10 @@ public class FFMpegServiceDesktop : IFFMpegService
             using var sourceBitmap = new SKBitmap(dataImageSize.Width, dataImageSize.Height, SKColorType.Rgba8888,
                 SKAlphaType.Premul);
 
-            // var info = new SKImageInfo(dataImageSize.Width, dataImageSize.Height, SKColorType.Rgba8888);
-            // sourceBitmap.InstallPixels(info, data);
-
             void* source = (void*)data;
             void* dest = (void*)sourceBitmap.GetPixels();
             long ln = sourceBitmap.ByteCount;
             Buffer.MemoryCopy(source, dest, ln, ln);
-            // Marshal.Copy(source, dest, 0, ln);
 
             // Создаем холст для целевого bitmap
             using var canvas = new SKCanvas(bitmap);
@@ -122,22 +117,6 @@ public class FFMpegServiceDesktop : IFFMpegService
         }
 
         return bitmap;
-
-        // nint pointerFFMpegBitmap = (IntPtr)decodeRes.FrameBitmapRGBA8888;
-        // int width = frameSize.Width;
-        // int height = frameSize.Height;
-        //
-        // var bmp = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
-        // var info = new SKImageInfo(width, height, SKColorType.Rgba8888);
-        // bmp.InstallPixels(info, pointerFFMpegBitmap);
-        //
-        // if (frameSize != targetSize)
-        // {
-        //     var resizedBitmap = (SKBitmap)ResizeBitmap(bmp, targetSize);
-        //     return resizedBitmap;
-        // }
-        //
-        // return bmp;
     }
 
     private MediaFormats ParseFormat(string data)

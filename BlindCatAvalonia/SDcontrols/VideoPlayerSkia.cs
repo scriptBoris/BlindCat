@@ -34,7 +34,10 @@ public class VideoPlayerSkia : Control, IMediaPlayer
     private readonly IVideoSurface _surface;
     private readonly ICrypto _crypto;
     private readonly IStorageService _storageService;
-    private readonly IAudioService _audioService;
+    private readonly IAudioContext _audioService;
+
+    public const AVHWDeviceType HWACC = AVHWDeviceType.AV_HWDEVICE_TYPE_NONE;
+    public const AVPixelFormat PIX_FMT = AVPixelFormat.AV_PIX_FMT_RGBA;
 
     private double _progress;
     private double _progressTick;
@@ -64,7 +67,7 @@ public class VideoPlayerSkia : Control, IMediaPlayer
 
         _crypto = this.DI<ICrypto>();
         _storageService = this.DI<IStorageService>();
-        _audioService = this.DI<IAudioService>();
+        _audioService = this.DI<IAudioContext>();
         _surface = new SoftwareRenderSurface();
         //_surface = new OpenGLSurface();
         VisualChildren.Add((Visual)_surface);
@@ -308,12 +311,12 @@ public class VideoPlayerSkia : Control, IMediaPlayer
         // new instances
         if (cachedAudioMeta != null && cachedAudioMeta.Streams.Length > 0)
         {
-            audioEngine = new AudioEngine(audioSource, startFrom, cachedAudioMeta!, _audioService);
+            audioEngine = new AudioEngine(audioSource, _audioService);
         }
 
         if (cachedVideoMeta != null && cachedVideoMeta.Streams.Length > 0)
         {
-            videoEngine = new VideoEngine(videoSource, startFrom, cachedVideoMeta!);
+            videoEngine = new VideoEngine(videoSource, HWACC, PIX_FMT);
             videoEngine.FrameReady += OnFrameReady;
             videoEngine.EndOfVideo += OnEndOfVideo;
         }
@@ -555,7 +558,7 @@ public class VideoPlayerSkia : Control, IMediaPlayer
         // using var proca = new AudioReader(filePath, _ffmpeg.PathToFFmpegExe, _ffmpeg.PathToFFprobeExe);
 
         var tv = proc.LoadMetadataAsync(cancel);
-        var ta = proca.LoadMetadataAsync(cancel);
+        var ta = proca.LoadMetadataAsync(cancel, false);
         await Task.WhenAll(tv, ta);
         if (cancel.IsCancellationRequested)
             return;

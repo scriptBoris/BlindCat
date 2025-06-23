@@ -1,18 +1,52 @@
+using FFmpeg.AutoGen.Abstractions;
+
 namespace FFMpegDll.Models;
 
 public class AudioMetadata
 {
+    public bool IsSuccess { get; set; }
+
+    public string ErrorMessage { get; set; } = "OK";
+
     /// <summary>
     /// Длительность в секундах
     /// </summary>
     public double Duration { get; set; }
+
+    /// <summary>
+    /// Количество сэмплов за одну секунду
+    /// </summary>
     public int SampleRate { get; set; }
+
+    /// <summary>
+    /// Предполагаемое количество сэмплов вообще
+    /// </summary>
     public long PredictedSampleCount { get; set; }
-    
+
+    /// <summary>
+    /// Количество звуковых каналов
+    /// </summary>
+    public int Channels { get; set; }
+
+    /// <summary>
+    /// Формат сэмплов
+    /// </summary>
+    public AVSampleFormat SampleFormat { get; set; }
+
     /// <summary>
     /// Аудио-стримы
     /// </summary>
     public AudioStreamMetadata[] Streams { get; set; }
+
+    /// <summary>
+    /// Прочитанный первый фрейм
+    /// </summary>
+    public FrameAudioDecodeResult? FirstFrame { get; set; }
+
+    /// <summary>
+    /// Количество сеэплов на один канал
+    /// </summary>
+    public int SamplesPerChannel { get; set; }
 }
 
 public class AudioStreamMetadata

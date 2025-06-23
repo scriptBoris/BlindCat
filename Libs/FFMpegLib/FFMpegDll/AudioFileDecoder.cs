@@ -1,22 +1,22 @@
+using System.Runtime.InteropServices;
 using FFmpeg.AutoGen.Abstractions;
+using FFMpegDll.Core;
 using FFMpegDll.Internal;
 using FFMpegDll.Models;
 
 namespace FFMpegDll;
 
-public unsafe class AudioFileDecoder : IAudioDecoder
+public unsafe class AudioFileDecoder : BaseAudioDecoder, IAudioDecoder
 {
-    private const int BUFFER_SIZE = 8192;
-    private readonly AVFormatContext* _pFormatContext;
-    private readonly AVCodecContext* _pCodecContext;
-    private readonly AVFrame* _pFrame;
-    private readonly AVPacket* _pPacket;
-    private readonly SwrContext* _pSwrContext;
-    private readonly object _locker = new();
-    private readonly int _streamAudioIndex;
-    
+    // private const int BUFFER_SIZE = 8192;
+    // private readonly AVFormatContext* _pFormatContext;
+    // private readonly AVCodecContext* _pCodecContext;
+    // private readonly AVFrame* _pFrame;
+    // private readonly AVPacket* _pPacket;
+    // private readonly int _streamAudioIndex;
+
+    // private AudioFrameConverter? _converter;
     private bool _disposed;
-    private void* _convertBuffer;
 
     public AudioFileDecoder(string filePath, FileCencArgs? args = null)
     {
@@ -31,9 +31,10 @@ public unsafe class AudioFileDecoder : IAudioDecoder
         if (_streamAudioIndex < 0)
         {
             CodecName = "";
+            HasAudioData = false;
             return;
         }
-        
+
         _pCodecContext = ffmpeg.avcodec_alloc_context3(codec);
 
         ffmpeg.avcodec_parameters_to_context(_pCodecContext, _pFormatContext->streams[_streamAudioIndex]->codecpar)
@@ -44,89 +45,20 @@ public unsafe class AudioFileDecoder : IAudioDecoder
 
         _pPacket = ffmpeg.av_packet_alloc();
         _pFrame = ffmpeg.av_frame_alloc();
+        HasAudioData = true;
         
-        var param = _pFormatContext->streams[_streamAudioIndex]->codecpar;
-        OriginSampleFormat = (AVSampleFormat)param->format;
-        Channels = param->ch_layout.nb_channels;
-        SampleRate = param->sample_rate;
-        DataSize = ffmpeg.av_samples_get_buffer_size(
-            null,
-            Channels,
-            SamplesPerChannel,
-            OriginSampleFormat,
-            1
-        );
-        SamplesPerChannel = _pCodecContext->frame_size > 0 
-            ? _pCodecContext->frame_size // Используем frame_size, если он определён
-            : 4096;                      // Если frame_size неизвестен, выбираем безопасное значение с запасом
-        
-        switch (OriginSampleFormat)
-        {
-            case AVSampleFormat.AV_SAMPLE_FMT_U8:
-                OutputSampleBits = 8;
-                OutputSampleBytes = 1;
-                OutputSampleFormat = OriginSampleFormat;
-                break;
-            case AVSampleFormat.AV_SAMPLE_FMT_S16:
-                OutputSampleBits = 16;
-                OutputSampleBytes = 2;
-                OutputSampleFormat = OriginSampleFormat;
-                break;
-            case AVSampleFormat.AV_SAMPLE_FMT_S32:
-                OutputSampleBits = 32;
-                OutputSampleBytes = 4;
-                OutputSampleFormat = OriginSampleFormat;
-                break;
-            // use converter
-            default:
-                OutputSampleBits = 16;
-                OutputSampleBytes = 2;
-                OutputSampleFormat = AVSampleFormat.AV_SAMPLE_FMT_S16;
-        
-                SwrContext* swrContext = null;
-                int alloc_swr_response = ffmpeg.swr_alloc_set_opts2(
-                    &swrContext,
-                    &_pCodecContext->ch_layout, // out
-                    OutputSampleFormat,         // out
-                    SampleRate,                 // out
-                    &_pCodecContext->ch_layout, // input
-                    OriginSampleFormat,         // input
-                    SampleRate,                 // input
-                    0, 
-                    null
-                );
-                
-                if (alloc_swr_response != 0)
-                    throw new InvalidOperationException("Fail allocating swr converter audio context");
-                
-                int swr_init_response = ffmpeg.swr_init(swrContext);
-                if (swr_init_response != 0)
-                    throw new InvalidOperationException("Fail allocating swr converter audio context (init)");
-                
-                _pSwrContext = swrContext;
-                int bufferSize = ffmpeg.av_samples_get_buffer_size(
-                    null,
-                    Channels,
-                    SamplesPerChannel,
-                    OutputSampleFormat,
-                    1
-                );
-                
-                _convertBuffer = ffmpeg.av_malloc((ulong)bufferSize);
-                break;
-        }
+        TryMap();
     }
 
-    public int DataSize { get; private set; }
     public string CodecName { get; }
+    public int DataSize => _converter?.DataSize ?? 0;
     public TimeSpan FrameTime { get; private set; }
-    public int Channels { get; private set; }
+    public int Channels => _converter?.Channels ?? 0;
     public AVSampleFormat OriginSampleFormat { get; private set; }
-    public AVSampleFormat OutputSampleFormat { get; private set; }
-    public int OutputSampleBits { get; private set; }
-    public int OutputSampleBytes { get; private set; }
-    public int SamplesPerChannel { get; private set; }
-    public int SampleRate { get; private set; }
+    public AVSampleFormat OutputSampleFormat => _converter?.OutputSampleFormat ?? AVSampleFormat.AV_SAMPLE_FMT_NONE;
+    public int OutputSampleBits => _converter?.OutputSampleBitsDepth ?? 0;
+    public int SamplesPerChannel => _converter?.SrcSamplesPerChannel ?? 0;
+    public int SampleRate => _converter?.SrcSampleRate ?? 0;
 
     public void SeekTo(TimeSpan position)
     {
@@ -140,92 +72,6 @@ public unsafe class AudioFileDecoder : IAudioDecoder
                 .ThrowExceptionIfError();
 
             FrameTime = position;
-        }
-    }
-
-    public bool TryDecodeNextSample(out Span<byte> frameSamples)
-    {
-        lock (_locker)
-        {
-            ffmpeg.av_frame_unref(_pFrame);
-            int error;
-
-            do
-            {
-                try
-                {
-                    do
-                    {
-                        ffmpeg.av_packet_unref(_pPacket);
-                        error = ffmpeg.av_read_frame(_pFormatContext, _pPacket);
-                    
-                        if (error == ffmpeg.AVERROR_EOF)
-                        {
-                            frameSamples = Array.Empty<byte>();
-                            return false;
-                        }
-                    
-                        error.ThrowExceptionIfError();
-                    } 
-                    while (_pPacket->stream_index != _streamAudioIndex);
-                    
-                    ffmpeg.avcodec_send_packet(_pCodecContext, _pPacket).ThrowExceptionIfError();
-                }
-                finally
-                {
-                    ffmpeg.av_packet_unref(_pPacket);
-                }
-
-                error = ffmpeg.avcodec_receive_frame(_pCodecContext, _pFrame);
-            } 
-            while (error == ffmpeg.AVERROR(ffmpeg.EAGAIN));
-
-            error.ThrowExceptionIfError();
-
-            // frame = *_pFrame;
-            frameSamples = ResolveSample(_pFrame);
-
-            return true;
-        }
-    }
-
-    private Span<byte> ResolveSample(AVFrame* frame)
-    {
-        // try use converter
-        if (_pSwrContext != null)
-        {
-            byte* pBuffer = (byte*)_convertBuffer;
-            
-            int convertedSamples = ffmpeg.swr_convert(
-                _pSwrContext,
-                &pBuffer,                // Буфер для выходных данных
-                frame->nb_samples,       // Количество сэмплов для конвертации
-                frame->extended_data,    // Входные данные
-                frame->nb_samples        // Количество входных сэмплов
-            );
-
-            if (convertedSamples < 0)
-                throw new Exception("Error of frame audio converting");
-            
-            int convertedBytes = convertedSamples * Channels * OutputSampleBytes;
-            return new Span<byte>(pBuffer, convertedBytes);
-        }
-        // use ready-made data for playback
-        else
-        {
-            var ptr = (IntPtr)frame->data[0];
-            var bptr = (byte*)ptr;
-            var span = new Span<byte>(bptr, DataSize);
-            return span;
-        }
-    }
-
-    public Task<AudioMetadata> LoadMetadataAsync(CancellationToken cancel)
-    {
-        lock (_locker)
-        {
-            var res = FFmpegHelper.LoadAudioMetadata(_pFormatContext, _pCodecContext, _streamAudioIndex);
-            return Task.FromResult(res);
         }
     }
 
@@ -250,16 +96,8 @@ public unsafe class AudioFileDecoder : IAudioDecoder
             var pFormatContext = _pFormatContext;
             ffmpeg.avformat_close_input(&pFormatContext);
 
-            if (_pSwrContext != null)
-            {
-                var pSwrContext = _pSwrContext;
-                ffmpeg.swr_free(&pSwrContext);
-            }
-
-            if (_convertBuffer != null)
-            {
-                ffmpeg.av_free(_convertBuffer);
-            }
+            if (_converter != null)
+                _converter.Dispose();
         }
     }
 }

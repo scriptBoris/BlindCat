@@ -7,6 +7,7 @@ using BlindCatAvalonia.Windows.Implementations;
 using BlindCatAvalonia.Services;
 using BlindCatAvalonia.Tools;
 using BlindCatCore.Services;
+using FFMpegDll.Core;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BlindCatAvalonia.Windows;
@@ -50,7 +51,7 @@ class Program
             .AddScoped<INavigationService, DesktopNavigation>()
             .AddScoped<ICrypto, DesktopCrypto>()
             .AddScoped<IConfig, FileConfig>()
-            .AddScoped<IAudioService, WindowsAudio>()
+            .AddScoped<IAudioContext, WindowsAudio>()
             .AddScoped<IKeyboardNative, KeyboardWin32>();
     }
 
@@ -62,6 +63,6 @@ class Program
             .AddScoped<INavigationService, DesignNavigationService>()
             .AddScoped<ICrypto, DesktopCrypto>()
             .AddScoped<IConfig, FileConfig>()
-            .AddScoped<IAudioService, WindowsAudio>();
+            .AddScoped<IAudioContext, WindowsAudio>();
     }
 }

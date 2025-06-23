@@ -122,15 +122,30 @@ public class HomeVm : BaseVm
         if (res == null)
             return;
 
-        res.Stream.Dispose();
-        await Task.Delay(500);
-        var key = new MediaPresentVm.Key
+        ISourceFile file;
+        if (res.UsePath)
         {
-            SourceFile = new LocalFile
+            file = new LocalFile
             {
                 Id = 0,
                 FilePath = res.Path,
-            },
+            };
+        }
+        else if (res.UseStream)
+        {
+            file = new StreamFile
+            {
+                Stream = res.Stream,
+            };
+        }
+        else
+        {
+            throw new NotSupportedException();
+        }
+        
+        var key = new MediaPresentVm.Key
+        {
+            SourceFile = file,
         };
         await GoTo(key);
     }
@@ -269,11 +284,27 @@ public class HomeVm : BaseVm
             string pluginDir = Path.Combine(pathDir, "plugins");
             if (!Directory.Exists(pluginDir))
             {
-                Directory.CreateDirectory(pluginDir);
+                try
+                {
+                    Directory.CreateDirectory(pluginDir);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Fail to create plugins dir" + e);
+                }
             }
 
             var ipluginType = typeof(IPlugin);
-            var files = Directory.GetFiles(pluginDir, "*.dll");
+            string[] files = [];
+            try
+            {
+                files = Directory.GetFiles(pluginDir, "*.dll");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Fail to read plugins files " + e);
+            }
+            
             foreach (var file in files)
             {
                 try

@@ -40,7 +40,7 @@
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-      <AndroidSupportedAbis>arm64-v8a</AndroidSupportedAbis>
+      <AndroidSupportedAbis>arm64-v8a;x86_64</AndroidSupportedAbis>
     </PropertyGroup>
 
     <ItemGroup>
@@ -53,6 +53,8 @@
         <!-- Images -->
         <MauiImage Include="Resources\Images\*"/>
         <MauiImage Update="Resources\Images\dotnet_bot.png" Resize="True" BaseSize="300,185"/>
+        <MauiImage Update="Resources\Images\ic_play_circle.svg" Resize="True" BaseSize="100,100"/>
+        <MauiImage Update="Resources\Images\ic_pause_circle.svg" Resize="True" BaseSize="100,100"/>
 
         <!-- Custom Fonts -->
         <MauiFont Include="Resources\Fonts\*"/>
@@ -66,10 +68,7 @@
         <PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="$(MauiVersion)"/>
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0"/>
         <PackageReference Include="Scaffold.Maui" Version="0.10.0-beta" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="Platforms\Android\Implementations\" />
+        <PackageReference Include="SkiaSharp.Views.Maui.Controls" Version="2.88.9" />
     </ItemGroup>
 
     <ItemGroup>
@@ -84,11 +83,14 @@
       <AndroidNativeLibrary Include="Platforms\Android\lib\x86_64\libavfilter.so" />
       <AndroidNativeLibrary Include="Platforms\Android\lib\x86_64\libavformat.so" />
       <AndroidNativeLibrary Include="Platforms\Android\lib\x86_64\libavutil.so" />
-      <AndroidNativeLibrary Include="Platforms\Android\lib\x86_64\libc++_shared.so" />
-      <AndroidNativeLibrary Include="Platforms\Android\lib\x86_64\libffmpegkit.so" />
-      <AndroidNativeLibrary Include="Platforms\Android\lib\x86_64\libffmpegkit_abidetect.so" />
+      <AndroidNativeLibrary Include="Platforms\Android\lib\x86_64\libpostproc.so" />
       <AndroidNativeLibrary Include="Platforms\Android\lib\x86_64\libswresample.so" />
       <AndroidNativeLibrary Include="Platforms\Android\lib\x86_64\libswscale.so" />
+        
+      <AndroidNativeLibrary Include="Platforms\Android\lib\x86_64\libc++_shared.so" />
+        
+<!--      <AndroidNativeLibrary Include="Platforms\Android\lib\x86_64\libffmpegkit.so" />-->
+<!--      <AndroidNativeLibrary Include="Platforms\Android\lib\x86_64\libffmpegkit_abidetect.so" />-->
     </ItemGroup>
 
 </Project>

@@ -1,4 +1,5 @@
-﻿using BlindCatCore.Core;
+﻿using System.Diagnostics.CodeAnalysis;
+using BlindCatCore.Core;
 using BlindCatCore.Models;
 using BlindCatCore.ViewModels;
 
@@ -30,8 +31,15 @@ public interface IViewPlatforms
 
 public interface IFileResult
 {
-    public string Path { get; }
-    public Stream Stream { get; }
+    [MemberNotNull(nameof(Stream))]
+    bool UseStream { get; }
+    
+    [MemberNotNull(nameof(Path))]
+    bool UsePath { get; }
+    
+    string? Path { get; }
+    Stream? Stream { get; }
+    string FileName { get; }
 }
 
 public interface IClipboard

@@ -77,7 +77,8 @@ public unsafe class AudioStreamDecoder : IAudioDecoder
         _pFrame = ffmpeg.av_frame_alloc();
         _pPacket = ffmpeg.av_packet_alloc();
 
-        var param = _pFormatContext->streams[_streamAudioIndex]->codecpar;
+        var stream = _pFormatContext->streams[_streamAudioIndex];
+        var param = stream->codecpar;
         OriginSampleFormat = (AVSampleFormat)param->format;
         Channels = param->ch_layout.nb_channels;
         SampleRate = param->sample_rate;
@@ -91,6 +92,14 @@ public unsafe class AudioStreamDecoder : IAudioDecoder
             OriginSampleFormat,
             1
         );
+        
+        double durationSeconds = 0;
+        long duration = stream->duration;
+        if (duration > 0)
+            durationSeconds = duration * ffmpeg.av_q2d(stream->time_base);
+        
+        Duration = TimeSpan.FromSeconds(durationSeconds);
+        PredictedSampleCount = (long)(durationSeconds * param->sample_rate);
         
         switch (OriginSampleFormat)
         {
@@ -159,6 +168,10 @@ public unsafe class AudioStreamDecoder : IAudioDecoder
     public int OutputSampleBytes { get; private set; }
     public int SamplesPerChannel { get; private set; }
     public int SampleRate { get; private set; }
+    public TimeSpan Duration { get; }
+    public long PredictedSampleCount { get; }
+    public bool IsEnoughData { get; }
+    public bool HasAudioData { get; }
 
     public static int ReadCallback(void* opaque, byte* buffer, int bufferSize)
     {
@@ -217,6 +230,16 @@ public unsafe class AudioStreamDecoder : IAudioDecoder
 
             FrameTime = position;
         }
+    }
+
+    public FrameAudioDecodeResult TryDecodeNextSample()
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<AudioMetadata?> LoadMetadataAsync(CancellationToken cancel, bool readFrame = false)
+    {
+        throw new NotImplementedException();
     }
 
     public bool TryDecodeNextSample(out Span<byte> frameSamples)
@@ -299,7 +322,11 @@ public unsafe class AudioStreamDecoder : IAudioDecoder
     {
         lock (_locker)
         {
-            var res = FFmpegHelper.LoadAudioMetadata(_pFormatContext, _pCodecContext, _streamAudioIndex);
+            var res = FFmpegHelper.LoadAudioMetadata(
+                null,
+                _pFormatContext, 
+                _pCodecContext, 
+                _streamAudioIndex);
             return Task.FromResult(res);
         }
     }

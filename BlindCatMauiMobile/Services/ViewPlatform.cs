@@ -86,7 +86,7 @@ public class ViewPlatform : IViewPlatforms
         throw new NotImplementedException();
     }
 
-    public async Task<IFileResult?> SelectMediaFile(object? hostView)
+    public virtual async Task<IFileResult?> SelectMediaFile(object? hostView)
     {
         var res = await FilePicker.PickAsync();
         if (res == null)
@@ -95,8 +95,11 @@ public class ViewPlatform : IViewPlatforms
         var str = await res.OpenReadAsync();
         return new FileResultPick
         {
-            Path = res.FullPath,
+            UsePath = false,
+            UseStream = true,
+            Path = null,
             Stream = str,
+            FileName = res.FileName,
         };
     }
 
@@ -126,12 +129,14 @@ public class ViewPlatform : IViewPlatforms
 
     public void UseGlobalLoading(object viewHost, IDisposableNotify token)
     {
-        throw new NotImplementedException();
     }
 
     private class FileResultPick : IFileResult
     {
-        public required string Path { get; set; }
-        public required Stream Stream { get; set; }
+        public required bool UseStream { get; set; }
+        public required bool UsePath { get; set; }
+        public required string? Path { get; set; }
+        public required Stream? Stream { get; set; }
+        public required string FileName { get; set; }
     }
 }

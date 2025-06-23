@@ -71,7 +71,21 @@ public sealed unsafe class VideoFileDecoder : IVideoDecoder
                     dstPixelFormat);
         }
 
+        var str = _pFormatContext->streams[_streamIndex];
+        var avgf = str->avg_frame_rate; 
+        int avg_fps = 0;
+        if (avgf.num > 0 && avgf.den > 0)
+            avg_fps = avgf.num / avgf.den;
+        
+        double durationSeconds = 0;
+        long duration = str->duration;
+        if (duration > 0)
+            durationSeconds = duration * ffmpeg.av_q2d(str->time_base);
+        
+        AvgFramerate = avg_fps;
         PixelFormat = convertPixels;
+        Duration = TimeSpan.FromSeconds(durationSeconds);
+
         _pPacket = ffmpeg.av_packet_alloc();
         _pFrame = ffmpeg.av_frame_alloc();
         _receivedFrame = ffmpeg.av_frame_alloc();
@@ -80,6 +94,8 @@ public sealed unsafe class VideoFileDecoder : IVideoDecoder
     public string CodecName { get; }
     public Size FrameSize { get; }
     public AVPixelFormat PixelFormat { get; }
+    public double AvgFramerate { get; }
+    public TimeSpan Duration { get; }
 
     public void SeekTo(TimeSpan time)
     {

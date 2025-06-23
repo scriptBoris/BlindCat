@@ -8,12 +8,13 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using FFMpegDll.Core;
 
 namespace BlindCatAvalonia.Windows.Implementations;
 
-internal class WindowsAudio : IAudioService
+internal class WindowsAudio : IAudioContext
 {
-    public IAudioPlay InitAudioOutput(Stream audioDataStream, int sampleRate, int bitDepth, int audioChannels)
+    public IAudioOutput InitAudioOutput(Stream audioDataStream, int sampleRate, int bitDepth, int audioChannels)
     {
         var waveFormat = new WaveFormat(sampleRate, bitDepth, audioChannels);
         var waveProvider = new WaveSourceStream(audioDataStream, waveFormat);
@@ -27,7 +28,7 @@ internal class WindowsAudio : IAudioService
         };
     }
 
-    private class NAudioOut : IAudioPlay
+    private class NAudioOut : IAudioOutput
     {
         public required IWavePlayer Device { get; set; }
 

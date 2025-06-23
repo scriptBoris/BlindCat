@@ -57,12 +57,13 @@ public static class Init
         {
             string dirName = "droid";
             useDirectDir = false;
-            string bitness = processorType.Value switch
+            string bitness = processorType switch
             {
                 ProcessorTypes.x86 => "x86",
                 ProcessorTypes.x86_64 => "x64",
                 ProcessorTypes.ARM64 => "arm64-v8a",
-                _ => throw new InvalidOperationException("Not setuped processor type."),
+                // _ => throw new InvalidOperationException("Not setuped processor type."),
+                _ => "unknown",
             };
             FunctionResolverFactory.ResolvedPlatform = PlatformTypes.Android;
             librariesPath = Path.Combine(current, "FFmpeg", $"{dirName}-{bitness}");

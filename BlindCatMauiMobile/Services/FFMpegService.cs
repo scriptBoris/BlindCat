@@ -19,76 +19,126 @@ public class FFMpegService : IFFMpegService
     {
         _crypto = crypto;
     }
-    
-    public async Task<AppResponse<DecodeResult>> DecodePicture(Stream stream, MediaFormats? format, Size? size, 
-        TimeSpan byTime, 
+
+    public Task<AppResponse<DecodeResult>> GetThumbnailFromVideo(Stream stream, 
+        MediaFormats format, 
+        IntSize size,
+        TimeSpan byTime,
         EncryptionArgs encryptionArgs,
         CancellationToken cancel)
     {
         FFMpegDll.Init.InitializeFFMpeg();
         using var decoder = new VideoStreamDecoder(stream, AVHWDeviceType.AV_HWDEVICE_TYPE_NONE, PIX_FMT);
-        var data = await decoder.LoadMetadataAsync(cancel);
         decoder.SeekTo(byTime);
 
-        var decRes = decoder.TryDecodeNextFrame(); 
-        if (decRes.IsSuccessed)
-            return AppResponse.Error("Fail to decode frame", 2311138);
+        var decRes = decoder.TryDecodeNextFrame();
+        if (!decRes.IsSuccessed)
+        {
+            var error = AppResponse.Error("Fail to decode frame", 2311138);
+            return Task.FromResult<AppResponse<DecodeResult>>(error);
+        }
 
-        var bmp = MakeBitmap(decRes, decoder.FrameSize);
+        var bmp = MakeBitmap(decRes, decoder.FrameSize, size);
         var formatf = ParseFormat(decoder.CodecName);
-        return AppResponse.Result(new DecodeResult
+        var res = AppResponse.Result(new DecodeResult
         {
             Bitmap = bmp,
             EncodedFormat = formatf,
         });
+        return Task.FromResult(res);
     }
 
-    public async Task<AppResponse<DecodeResult>> DecodePicture(string? path, MediaFormats? format, Size? size, 
-        TimeSpan byTime, 
+    public Task<AppResponse<DecodeResult>> GetThumbnailFromVideo(string path, 
+        MediaFormats format, 
+        IntSize size,
+        TimeSpan byTime,
         FileCENC? encodingData,
         EncryptionArgs encryptionArgs, CancellationToken cancel)
     {
         FFMpegDll.Init.InitializeFFMpeg();
         using var decoder = new VideoFileDecoder(path, AVHWDeviceType.AV_HWDEVICE_TYPE_NONE, PIX_FMT);
-        var data = await decoder.LoadMetadataAsync(cancel);
-        decoder.SeekTo(byTime);
-        
-        var decRes = decoder.TryDecodeNextFrame();
-        if (decRes.IsSuccessed)
-            return AppResponse.Error("Fail to decode frame", 2311138);
 
-        var bmp = MakeBitmap(decRes, decoder.FrameSize);
+        if (decoder.PixelFormat == AVPixelFormat.AV_PIX_FMT_NONE)
+        {
+            var error = AppResponse.Error("Audio file", IFFMpegService.OnlyAudioFile);
+            return Task.FromResult<AppResponse<DecodeResult>>(error);
+        }
+
+        decoder.SeekTo(byTime);
+
+        var decRes = decoder.TryDecodeNextFrame();
+        if (!decRes.IsSuccessed)
+        {
+            var error = AppResponse.Error("Fail to decode frame", 2311138);
+            return Task.FromResult<AppResponse<DecodeResult>>(error);
+        }
+
+        var bmp = MakeBitmap(decRes, decoder.FrameSize, size);
         var formatf = ParseFormat(decoder.CodecName);
-        return AppResponse.Result(new DecodeResult
+        var res = AppResponse.Result(new DecodeResult
         {
             Bitmap = bmp,
             EncodedFormat = formatf,
         });
+        return Task.FromResult(res);
     }
 
-    private unsafe SKBitmap MakeBitmap(FrameDecodeResult decodeRes, IntSize frameSize)
+    private unsafe SKBitmap MakeBitmap(FrameDecodeResult decodeRes, IntSize dataImageSize, IntSize targetSize)
     {
-        nint pointerFFMpegBitmap = (IntPtr)decodeRes.FrameBitmapRGBA8888;
-        int bytePerPixel = 24;
-        int width = frameSize.Width;
-        int height = frameSize.Height;
-        
-        var bmp = new SKBitmap(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
-        var info = new SKImageInfo(width, height, SKColorType.Rgba8888);
-        bmp.InstallPixels(info, pointerFFMpegBitmap);
+        // Создаем новый SKBitmap с указанным размером
+        var bitmap = new SKBitmap(targetSize.Width, targetSize.Height, SKColorType.Rgba8888, SKAlphaType.Premul);
+        nint data = (nint)decodeRes.FrameBitmapRGBA8888;
 
-        return bmp;
+        // Если размер исходных данных не совпадает с целевым размером, нужна масштабизация
+        if (dataImageSize != targetSize)
+        {
+            // Создаем временный SKBitmap для исходных данных
+            using var sourceBitmap = new SKBitmap(dataImageSize.Width, dataImageSize.Height, SKColorType.Rgba8888,
+                SKAlphaType.Premul);
+
+            void* source = (void*)data;
+            void* dest = (void*)sourceBitmap.GetPixels();
+            long ln = sourceBitmap.ByteCount;
+            Buffer.MemoryCopy(source, dest, ln, ln);
+
+            // Создаем холст для целевого bitmap
+            using var canvas = new SKCanvas(bitmap);
+
+            // Создаем матрицу трансформации для масштабирования
+            float sx = (float)targetSize.Width / dataImageSize.Width;
+            float sy = (float)targetSize.Height / dataImageSize.Height;
+            var matrix = SKMatrix.CreateScale(sx, sy);
+
+            // Рисуем исходный битмап с масштабированием
+            canvas.SetMatrix(matrix);
+            canvas.DrawBitmap(sourceBitmap, 0, 0);
+        }
+        else
+        {
+            // Если размеры совпадают, просто копируем данные
+            void* source = (void*)data;
+            void* dest = (void*)bitmap.GetPixels();
+            long ln = bitmap.ByteCount;
+            Buffer.MemoryCopy(source, dest, ln, ln);
+        }
+
+        return bitmap;
     }
 
-    public Task<AppResponse<DecodeResult>> GetThumbnailFromVideo(Stream stream, MediaFormats? format, IntSize? size, TimeSpan byTime, EncryptionArgs encryptionArgs,
-        CancellationToken cancel)
+    private MediaFormats ParseFormat(string data)
     {
-        throw new NotImplementedException();
-    }
+        switch (data)
+        {
+            case "h264":
+            case "h265":
+                return MediaFormats.Mp4;
+            case "vp8":
+            case "vp9":
+                return MediaFormats.Webm;
+            case "av1":
+                return MediaFormats.Webm;
+        }
 
-    public Task<AppResponse<DecodeResult>> GetThumbnailFromVideo(string? path, MediaFormats? format, IntSize? size, TimeSpan byTime, FileCENC? encodingData,
-        EncryptionArgs encryptionArgs, CancellationToken cancel)
-    {
         throw new NotImplementedException();
     }
 
@@ -99,91 +149,15 @@ public class FFMpegService : IFFMpegService
 
     public object ResizeBitmap(object bitmap, IntSize size)
     {
-        throw new NotImplementedException();
+        var original = (SKBitmap)bitmap;
+        var skImageInfo = new SKImageInfo(size.Width, size.Height);
+        var resized = original.Resize(skImageInfo, SKFilterQuality.Medium);
+        return resized;
     }
 
-    public async Task<AppResponse<DecodeResult>> CreateAndSaveThumbnail(string originFilePath, 
-        string pathThumbnail, 
-        MediaFormats format, 
-        EncryptionArgs enc,
-        CancellationToken cancel)
-    {
-        var size = new System.Drawing.Size(250, 250); 
-        var offset = TimeSpan.FromMilliseconds(5);
-        AppResponse<DecodeResult> thumbnailRes;
-        if (enc.EncryptionMethod == EncryptionMethods.None)
-        {
-            if (format.IsVideo())
-            {
-                thumbnailRes = await GetThumbnailFromVideo(
-                    originFilePath, 
-                    format, 
-                    size,
-                    offset,
-                    null,
-                    enc,
-                    cancel
-                );
-            }
-            else
-            {
-                thumbnailRes = await MakeMini(cancel);
-            }
-        }
-        else
-        {
-            if (format.IsVideo())
-            {
-                thumbnailRes = await GetThumbnailFromVideo(
-                    originFilePath, 
-                    format, 
-                    size,
-                    offset,
-                    null,
-                    enc,
-                    cancel
-                );
-            }
-            else
-            {
-                // todo make mini picture
-                thumbnailRes = await MakeMini(cancel);
-            }
-        }
-        
-        if (thumbnailRes.IsFault)
-            return thumbnailRes;
-
-        var bmp = (SKBitmap)thumbnailRes.Result.Bitmap;
-        using var image = SKImage.FromBitmap(bmp);
-        using var data = image.Encode(SKEncodedImageFormat.Jpeg, 90);
-        using var mem = new MemoryStream();
-        data.SaveTo(mem);
-        mem.Position = 0;
-
-        if (enc.Password != null)
-        {
-            await _crypto.EncryptFile(mem, pathThumbnail, enc.Password);
-        }
-        else
-        {
-            throw new NotImplementedException();
-        }
-        
-        return AppResponse.Result(new DecodeResult
-        {
-            Bitmap = bmp,
-            EncodedFormat = MediaFormats.Jpeg,
-        });
-    }
-    
-    private static Task<AppResponse<DecodeResult>> MakeMini(CancellationToken cancel)
-    {
-        // todo make mini picture
-        throw new NotImplementedException();
-    }
-    
-    private static MediaFormats ParseFormat(string decoderCodecName)
+    public Task<AppResponse<DecodeResult>> CreateAndSaveThumbnail(string originFilePath, string pathThumbnail,
+        MediaFormats mediaFormat, EncryptionArgs enc,
+        CancellationToken none)
     {
         throw new NotImplementedException();
     }

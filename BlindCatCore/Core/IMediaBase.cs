@@ -38,6 +38,14 @@ public interface IMediaBase
     Task SetSourceLocal(string filePath, CancellationToken cancel);
     Task SetSourceRemote(string url, CancellationToken cancel);
     Task SetSourceStorage(StorageFile file, CancellationToken cancel);
+    
+    /// <summary>
+    /// Останавливает воспроизведение и освобождает затраченные ресурсы
+    /// </summary>
     void Reset();
+    
+    /// <summary>
+    /// Получение метаданных
+    /// </summary>
     FileMetaData[]? GetMeta();
 }

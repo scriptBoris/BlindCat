@@ -1,4 +1,5 @@
 using BlindCatCore.Services;
+using BlindCatMauiMobile.Core;
 using ScaffoldLib.Maui;
 
 namespace BlindCatMauiMobile.Services;
@@ -9,7 +10,11 @@ public class NavigationService : INavigationService
     
     public NavigationService()
     {
-        _scaffold = new Scaffold();
+        _scaffold = new Scaffold
+        {
+            ViewFactory = new ScaffoldCustomFactory(),
+        };
+        
         MainPage = new ContentPage
         {
             Content = (View)_scaffold,

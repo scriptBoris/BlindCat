@@ -95,8 +95,21 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
                 _pCodecContext->pix_fmt,
                 pixelFormat);
         }
-
+        
+        var str = _pFormatContext->streams[_streamVideoIndex];
+        var avgf = str->avg_frame_rate; 
+        int avg_fps = 0;
+        if (avgf.num > 0 && avgf.den > 0)
+            avg_fps = avgf.num / avgf.den;
+        
+        double durationSeconds = 0;
+        long duration = str->duration;
+        if (duration > 0)
+            durationSeconds = duration * ffmpeg.av_q2d(str->time_base);
+        
+        AvgFramerate = avg_fps;
         PixelFormat = AVPixelFormat.AV_PIX_FMT_RGBA;
+        Duration = TimeSpan.FromSeconds(durationSeconds);
 
         _pFrame = ffmpeg.av_frame_alloc();
         _receivedFrame = ffmpeg.av_frame_alloc();
@@ -108,6 +121,8 @@ public sealed unsafe class VideoStreamDecoder : IVideoDecoder
     public Size FrameSize { get; }
     public AVPixelFormat PixelFormat { get; }
     public TimeSpan FrameTime { get; private set; }
+    public double AvgFramerate { get; }
+    public TimeSpan Duration { get; }
 
     public static int ReadCallback(void* opaque, byte* buffer, int bufferSize)
     {

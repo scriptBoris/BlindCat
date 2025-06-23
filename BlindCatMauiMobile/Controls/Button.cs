@@ -18,7 +18,15 @@ public class Button : Microsoft.Maui.Controls.Button
     {
         Dispatcher.Dispatch(() =>
         {
-            Command?.Execute(CommandParameter);
+            try
+            {
+                Command?.Execute(CommandParameter);
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine(exception);
+                throw;
+            }
         });
     }
 

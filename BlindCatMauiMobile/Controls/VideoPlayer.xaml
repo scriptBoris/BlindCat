@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Grid xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+      xmlns:core="clr-namespace:BlindCatMauiMobile.Core"
+      x:Class="BlindCatMauiMobile.Controls.VideoPlayer">
+
+    <!--surface-->
+    <core:SKVideoCanvas x:Name="_canvas"
+                        InputTransparent="True" />
+
+    <!--image play state-->
+    <Image x:Name="_imageCenterPlayState"
+           HorizontalOptions="Center"
+           VerticalOptions="Center"
+           InputTransparent="True"
+           IsVisible="False"
+           Opacity="0.8" />
+
+    <!--progress-->
+    <Slider x:Name="_sliderProgress"
+            VerticalOptions="End"
+            IsVisible="False"
+            Maximum="1"
+            Minimum="0" />
+</Grid>

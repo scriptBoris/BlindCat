@@ -7,6 +7,7 @@ using BlindCatAvalonia.Linux.Implementations;
 using BlindCatAvalonia.Services;
 using BlindCatAvalonia.Tools;
 using BlindCatCore.Services;
+using FFMpegDll.Core;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BlindCatAvalonia.Linux;
@@ -50,7 +51,7 @@ class Program
             .AddScoped<INavigationService, DesktopNavigation>()
             .AddScoped<ICrypto, DesktopCrypto>()
             .AddScoped<IConfig, FileConfig>()
-            .AddScoped<IAudioService, LinuxAudio>();
+            .AddScoped<IAudioContext, LinuxAudio>();
     }
 
     private static void ServicesDI_Designer(string[] args)
@@ -61,6 +62,6 @@ class Program
             .AddScoped<INavigationService, DesignNavigationService>()
             .AddScoped<ICrypto, DesktopCrypto>()
             .AddScoped<IConfig, FileConfig>()
-            .AddScoped<IAudioService, LinuxAudio>();
+            .AddScoped<IAudioContext, LinuxAudio>();
     }
 }

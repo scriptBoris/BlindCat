@@ -7,18 +7,19 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using BlindCatAvalonia.Services;
+using FFMpegDll.Core;
 using SDL2;
 
 namespace BlindCatAvalonia.Linux.Implementations;
 
-internal class LinuxAudio : IAudioService
+internal class LinuxAudio : IAudioContext
 {
-    public IAudioPlay InitAudioOutput(Stream audioDataStream, int sampleRate, int bitDepth, int audioChannels)
+    public IAudioOutput InitAudioOutput(Stream audioDataStream, int sampleRate, int bitDepth, int audioChannels)
     {
         return new AudioPlayer(audioDataStream, sampleRate, bitDepth, audioChannels);
     }
     
-    public unsafe class AudioPlayer : IDisposable, IAudioPlay
+    public unsafe class AudioPlayer : IAudioOutput
     {
         private bool disposed = false;
         private SDL.SDL_AudioSpec desired, obtained;
